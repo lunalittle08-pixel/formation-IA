@@ -41,6 +41,11 @@ reading:
   candidate_separators: [",", ";", "\t", "|"]
   sniff_bytes: 50000
 
+# Cartographie : colonnes de même nom ignorées par la détection AUTOMATIQUE de relations
+# (colonnes techniques présentes partout, qui ne relient pas les jeux de données)
+relations:
+  ignore_columns: [created_at, updated_at]
+
 inference:
   na_tokens: ["", "na", "n/a", "nan", "null", "none", "-"]
   parse_rate_min: 0.95          # part de valeurs convertibles pour retenir un type

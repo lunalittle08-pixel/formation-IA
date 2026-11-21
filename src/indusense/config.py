@@ -71,6 +71,7 @@ class Settings:
     overrides: tuple[dict, ...]
     candidate_separators: tuple[str, ...]
     sniff_bytes: int
+    relation_ignore_columns: frozenset[str]
     inference: InferenceSettings
     audit: AuditSettings
     raw: dict = field(repr=False, default_factory=dict)
@@ -109,6 +110,7 @@ def load_settings(config_path: Path | str = DEFAULT_CONFIG) -> Settings:
         overrides=tuple(discovery.get("overrides") or ()),
         candidate_separators=tuple(cfg["reading"]["candidate_separators"]),
         sniff_bytes=int(cfg["reading"]["sniff_bytes"]),
+        relation_ignore_columns=frozenset((cfg.get("relations") or {}).get("ignore_columns") or ()),
         inference=InferenceSettings(
             na_tokens=frozenset(t.lower() for t in inf["na_tokens"]),
             parse_rate_min=float(inf["parse_rate_min"]),

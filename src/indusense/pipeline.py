@@ -22,6 +22,7 @@ from indusense.contracts.model import (declared_references, load_contracts, save
                                        structure_errors)
 from indusense.contracts.validate import (ValidationResult, reference_violations,
                                           validate_dataset)
+from indusense.io.files import sha256
 from indusense.io.readers import SourceFile, load_source
 from indusense.profiling.findings_spec import column_overrides
 from indusense.profiling.profile import DatasetProfile, profile_dataset
@@ -92,12 +93,25 @@ def load_and_profile(specs: list[SourceSpec], settings: Settings,
 
 
 # ------------------------------------------------------------------ étapes
+def _rel(settings: Settings, path: Path) -> str:
+    """Chemin relatif à la racine du projet, séparateurs « / » quel que soit l'OS."""
+    return str(path.relative_to(settings.root)).replace("\\", "/")
+
+
+def _spec_fingerprint(settings: Settings) -> dict | None:
+    """Chemin et empreinte de la spécification des constats (traçabilité du run)."""
+    spec = settings.audit.findings_spec
+    if spec is None or not spec.exists():
+        return None
+    return {"path": _rel(settings, spec), "sha256": sha256(spec)}
+
+
 def _spec_label(settings: Settings) -> str | None:
     """Chemin relatif de la spécification métier des constats, si elle existe."""
     spec = settings.audit.findings_spec
     if spec is None or not spec.exists():
         return None
-    return str(spec.relative_to(settings.root)).replace("\\", "/")
+    return _rel(settings, spec)
 
 
 def stage_identity(run: Run, loaded: list[LoadedSource]) -> None:
@@ -155,8 +169,9 @@ def write_manifest(run: Run, loaded: list[LoadedSource], stages: list[str]) -> P
         "started_at": run.started_at.isoformat(timespec="seconds"),
         "finished_at": datetime.now().isoformat(timespec="seconds"),
         "stages": stages,
-        "config": {"path": str(run.settings.config_path.relative_to(run.settings.root)),
+        "config": {"path": _rel(run.settings, run.settings.config_path),
                    "sha256": run.settings.config_sha256},
+        "findings_spec": _spec_fingerprint(run.settings),
         "versions": {"indusense": __version__, "python": platform.python_version(),
                      "pandas": pd.__version__},
         "inputs": [{"path": str(ls.src.spec.path.relative_to(run.settings.root)).replace("\\", "/"),
@@ -186,7 +201,8 @@ def run_pipeline(settings: Settings, stages: list[str], source_ids: list[str] | 
             log.error("contrat %s : %s", cid, err)
     loaded = load_and_profile(specs, settings, contracts)
     datasets = [ds for ls in loaded for ds in ls.src.datasets]
-    relations = map_relations(datasets, declared_references(contracts))
+    relations = map_relations(datasets, declared_references(contracts),
+                              settings.relation_ignore_columns)
 
     if "identity" in stages:
         stage_identity(run, loaded)
