@@ -1,0 +1,66 @@
+# =============================================================================
+# InduSense — configuration du pipeline d'ingestion
+# Toute la logique est pilotée d'ici : pour une nouvelle source, on dépose le
+# fichier dans data_dir (découverte automatique) et on ajoute son contrat dans
+# configs/contracts/ — ni code ni nom de fichier à déclarer.
+# Les chemins relatifs sont résolus depuis la racine du projet.
+# =============================================================================
+version: 1
+
+paths:
+  data_dir: datas
+  contracts_dir: configs/contracts
+  artifacts_dir: artifacts/ingestion
+  # Sous-dossiers de artifacts_dir (horodatés AAAAMMJJ/<nom>_HHMMSS.*)
+  identities: identities        # TP1 : cartes d'identité
+  audits: audits                # audit qualité (guide data audit)
+  validations: validations      # contrôle des données contre leur contrat
+  drafts: contracts/drafts      # brouillons de contrats générés
+  runs: runs                    # manifestes d'exécution (traçabilité)
+
+# -----------------------------------------------------------------------------
+# Découverte des sources : tout fichier de data_dir correspondant à un motif est
+# traité. Identifiant = nom du fichier sans extension (telemetry.csv -> telemetry).
+# Aucun nom de fichier ici : déposer un fichier dans data_dir suffit.
+# -----------------------------------------------------------------------------
+discovery:
+  patterns: ["*.csv", "*.tsv", "*.sql", "*.sql.txt"]
+  # Options de lecture imposées PAR MOTIF (glob sur le nom du fichier), dans l'ordre ;
+  # la dernière règle qui correspond l'emporte. Options : format (csv | sql | auto),
+  # encoding (auto | cp1252 | utf-8...), separator (auto | ";" ...), sql_dialect.
+  # Par défaut tout est `auto` (format déduit de l'extension, encodage et séparateur détectés).
+  overrides:
+    - match: "*.sql*"
+      format: sql
+      sql_dialect: postgres     # TIMESTAMPTZ => scripts PostgreSQL
+
+# -----------------------------------------------------------------------------
+# Lecture et inférence de types (repris du notebook TP1)
+# -----------------------------------------------------------------------------
+reading:
+  candidate_separators: [",", ";", "\t", "|"]
+  sniff_bytes: 50000
+
+inference:
+  na_tokens: ["", "na", "n/a", "nan", "null", "none", "-"]
+  parse_rate_min: 0.95          # part de valeurs convertibles pour retenir un type
+  category_max_unique: 30       # au-delà, un texte n'est plus une catégorie
+  min_rows_for_identity: 20     # unicité significative seulement sur un échantillon suffisant
+  identity_name_pattern: '(^id$|_id$|^id_|^code$|_code$|^matricule$)'
+  time_pattern: '^\d{1,2}:\d{2}(:\d{2})?$'
+  bool_values: ["0", "1", "true", "false", "oui", "non", "yes", "no", "t", "f"]
+
+# -----------------------------------------------------------------------------
+# Règles d'audit (guide data audit — dimensions de qualité). Seuils à justifier.
+# -----------------------------------------------------------------------------
+audit:
+  missing_warn_pct: 5           # complétude : au-delà, stratégie d'imputation à définir
+  missing_drop_pct: 60          # au-delà, colonne candidate à la suppression
+  outlier_iqr_factor: 1.5       # exactitude : règle de Tukey
+  repeated_extreme_min: 5       # valeur min/max répétée => saturation / code d'erreur
+  underrepresented_ratio: 0.3   # représentativité : modalité < 30 % de la médiane
+  imbalance_ratio: 10           # déséquilibre : majoritaire / minoritaire
+  redundant_corr: 0.95          # colonnes numériques probablement redondantes
+  pii_name_pattern: '(e-?mail|mail|nom|prenom|name|tel|phone|adresse|address|iban|nir|badge|matricule|operator)'
+  # Variables cibles candidates (déséquilibre de classes)
+  targets: []

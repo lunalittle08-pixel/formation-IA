@@ -1,0 +1,75 @@
+# Contrat de données — télémétrie horaire des machines
+# Bornes = plages PHYSIQUES plausibles, pas les min/max observés. Chaque borne est à
+# confirmer avec la fiche technique du capteur (TODO valider) avant passage en 1.0.0.
+apiVersion: indusense/v1
+kind: DataContract
+contract:
+  id: telemetry
+  version: 0.2.0
+  status: draft
+  owner: "TODO: équipe OT / supervision"
+  description: >
+    Mesures agrégées par machine et par heure : température, pression, tension,
+    vitesse de rotation, production. Série temporelle d'entrée du modèle.
+source:
+  path: datas/telemetry.csv
+  format: csv
+  encoding: utf-8
+  separator: ","
+schema:
+  primary_key: [machine_id, timestamp]   # une mesure par machine et par heure
+  allow_extra_columns: false
+  columns:
+    - name: machine_id
+      type: IDENTITY
+      description: Machine mesurée
+      required: true
+      pattern: '^MACH-\d{2}$'
+      references: machine.machine_code
+
+    - name: timestamp
+      type: DATETIME
+      description: Début de l'heure de mesure (heure locale, sans fuseau)
+      required: true
+
+    - name: temperature_c
+      type: FLOAT
+      description: Température moyenne
+      unit: °C
+      max_missing_pct: 5
+      min: 0          # TODO valider : min observé 32.00 et max 80.00 tout ronds => écrêtage capteur ?
+      max: 120
+
+    - name: pressure_bar
+      type: FLOAT
+      description: Pression moyenne
+      unit: bar
+      required: true
+      min: 0
+      max: 300        # TODO valider
+
+    - name: voltage_mean_v
+      type: FLOAT
+      description: Tension moyenne d'alimentation
+      unit: V
+      required: true
+      min: 200        # TODO valider : réseau 230 V ± 10 %
+      max: 260
+
+    - name: rotation_mean_rpm
+      type: FLOAT
+      description: Vitesse de rotation moyenne
+      unit: tr/min
+      required: true
+      min: 0
+      max: 3000       # TODO valider : 1100 et 1900 observés tout ronds => écrêtage ?
+
+    - name: pieces_produced
+      type: INTEGER
+      description: Pièces produites pendant l'heure
+      unit: pièces
+      required: true
+      min: 0
+quality:
+  min_rows: 1
+  max_duplicate_rows: 0

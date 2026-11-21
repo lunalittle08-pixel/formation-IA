@@ -1,0 +1,38 @@
+# Contrat de données — référentiel des machines (table `machine` du script SQL)
+apiVersion: indusense/v1
+kind: DataContract
+contract:
+  id: machine
+  version: 1.0.0
+  status: active
+  owner: "TODO: méthodes / maintenance"
+  description: Référentiel des machines du parc (une ligne par machine).
+source:
+  path: datas/machine.sql
+  format: sql
+  table: machine
+  sql_dialect: postgres
+schema:
+  primary_key: [machine_code]
+  allow_extra_columns: false
+  columns:
+    - {name: machine_code, type: IDENTITY, required: true, unique: true, pattern: '^MACH-\d{2}$',
+       declared_type: VARCHAR(16), description: Code machine (clé du référentiel)}
+    - {name: commissioning_date, type: DATETIME, required: true, declared_type: DATE,
+       description: Date de mise en service}
+    - {name: max_daily_capacity, type: INTEGER, min: 0, declared_type: INT, unit: pièces/jour,
+       description: Capacité journalière maximale}
+    - {name: max_hourly_capacity_pieces, type: INTEGER, min: 0, declared_type: INT, unit: pièces/heure,
+       description: Capacité horaire maximale}
+    - {name: model, type: CATEGORY, declared_type: VARCHAR(32), description: Modèle constructeur}
+    - {name: production_line, type: CATEGORY, declared_type: VARCHAR(16), description: Ligne de production}
+    - {name: location, type: CATEGORY, declared_type: VARCHAR(16), description: Atelier}
+    - {name: criticality, type: CATEGORY, declared_type: VARCHAR(8),
+       description: Criticité de la machine pour la production}   # TODO : fixer allowed_values
+    - {name: is_active, type: BOOLEAN, declared_type: BOOLEAN, description: Machine en service}
+    - {name: created_at, type: DATETIME, declared_type: TIMESTAMPTZ, description: Création de l'enregistrement}
+    - {name: updated_at, type: DATETIME, declared_type: TIMESTAMPTZ, description: Dernière modification,
+       on_fail: warning}
+quality:
+  min_rows: 1
+  max_duplicate_rows: 0
