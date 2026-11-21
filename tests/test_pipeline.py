@@ -19,6 +19,13 @@ def test_pipeline_complet(settings, real_contracts):
                   "| Colname | Infered Type |"):
         assert field in card
 
+    # Audit : métriques de la carte d'identité (taille, moyenne, médiane) reprises dans le rapport
+    audit = next(o for o in outs if re.search(r"audits/\d{8}/releves_incidents_\d{6}\.md$", o))
+    audit_md = (settings.root / audit).read_text(encoding="utf-8")
+    for field in ("| Taille |", "## Statistiques des colonnes numériques et dates",
+                  "| Moyenne | Médiane | Écart-type | Q1 | Q3 |"):
+        assert field in audit_md
+
     # Validation : MACH-99 absente du référentiel machine => violation de référence
     assert run.summary["validation"]["releves_incidents"] is False
     manifest = settings.artifact_dir("runs") / run.run_id / "manifest.json"
