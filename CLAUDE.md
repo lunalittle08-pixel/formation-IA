@@ -14,6 +14,9 @@ maintenance prédictive (pannes machines). Sprint 1 : fiabiliser les données (C
 - `notebooks/` : journal de bord (exploration, interprétation, décisions). Le notebook importe le
   package : pas de logique métier dupliquée dans les cellules.
 - `artifacts/ingestion/` : sorties générées (cartes, audits, validations, manifestes). Jamais éditées à la main.
+- `docs/` : documentation (index `docs/README.md` : spécifications fonctionnelles et techniques,
+  architecture, manuel utilisateur, mode opératoire, exploitation). Toute évolution du code, de
+  la config ou des commandes met à jour le document concerné dans la même branche.
 
 ## Commandes
 ```bash

@@ -23,7 +23,7 @@ def _contract_check(settings) -> int:
     contracts = load_contracts(settings.contracts_dir)
     bad = 0
     for cid, c in contracts.items():
-        errs = structure_errors(c)
+        errs = structure_errors(c, set(settings.audit.rules))
         status = "OK" if not errs else "; ".join(errs)
         print(f"{cid:25} v{c['contract'].get('version')} [{c['contract'].get('status')}] {status}")
         bad += bool(errs)

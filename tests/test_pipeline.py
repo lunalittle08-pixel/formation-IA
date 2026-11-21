@@ -24,6 +24,8 @@ def test_pipeline_complet(settings, real_contracts):
     manifest = settings.artifact_dir("runs") / run.run_id / "manifest.json"
     data = json.loads(manifest.read_text(encoding="utf-8"))
     assert len(data["inputs"]) == 2 and data["config"]["sha256"]
+    assert data["config"]["path"] == "configs/pipeline.yaml"       # séparateurs POSIX
+    assert data["findings_spec"] is None                             # pas de spéc. dans le mini-projet
 
 
 def test_cli_code_retour(project, real_contracts):

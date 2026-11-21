@@ -22,7 +22,9 @@ from indusense.contracts.model import (declared_references, load_contracts, save
                                        structure_errors)
 from indusense.contracts.validate import (ValidationResult, reference_violations,
                                           validate_dataset)
+from indusense.io.files import sha256
 from indusense.io.readers import SourceFile, load_source
+from indusense.profiling.findings_spec import column_overrides
 from indusense.profiling.profile import DatasetProfile, profile_dataset
 from indusense.profiling.relations import Relation, map_relations
 from indusense.reporting import markdown as md
@@ -63,7 +65,7 @@ class Run:
 
 
 def file_base(path: Path) -> str:
-    """Nom sans AUCUNE extension : machine.sql.txt -> machine."""
+    """Nom sans AUCUNE extension : ventes.sql.txt -> ventes."""
     return source_id(path)
 
 
@@ -72,7 +74,10 @@ def _json(obj) -> str:
 
 
 # ------------------------------------------------------------------ chargement
-def load_and_profile(specs: list[SourceSpec], settings: Settings) -> list[LoadedSource]:
+def load_and_profile(specs: list[SourceSpec], settings: Settings,
+                     contracts: dict[str, dict] | None = None) -> list[LoadedSource]:
+    """Lit et profile chaque source ; les exceptions `audit:` des contrats s'appliquent."""
+    contracts = contracts or {}
     loaded = []
     for spec in specs:
         if not spec.path.exists():
@@ -80,13 +85,35 @@ def load_and_profile(specs: list[SourceSpec], settings: Settings) -> list[Loaded
             continue
         log.info("lecture de %s", spec.path.name)
         src = load_source(spec, settings)
-        profiles = [profile_dataset(ds, settings) for ds in src.datasets]
+        profiles = [profile_dataset(ds, settings, column_overrides(contracts.get(ds.id)))
+                    for ds in src.datasets]
         src.end = datetime.now()   # ProcessEndAt : après lecture, inférence et statistiques
         loaded.append(LoadedSource(src, profiles))
     return loaded
 
 
 # ------------------------------------------------------------------ étapes
+def _rel(settings: Settings, path: Path) -> str:
+    """Chemin relatif à la racine du projet, séparateurs « / » quel que soit l'OS."""
+    return str(path.relative_to(settings.root)).replace("\\", "/")
+
+
+def _spec_fingerprint(settings: Settings) -> dict | None:
+    """Chemin et empreinte de la spécification des constats (traçabilité du run)."""
+    spec = settings.audit.findings_spec
+    if spec is None or not spec.exists():
+        return None
+    return {"path": _rel(settings, spec), "sha256": sha256(spec)}
+
+
+def _spec_label(settings: Settings) -> str | None:
+    """Chemin relatif de la spécification métier des constats, si elle existe."""
+    spec = settings.audit.findings_spec
+    if spec is None or not spec.exists():
+        return None
+    return _rel(settings, spec)
+
+
 def stage_identity(run: Run, loaded: list[LoadedSource]) -> None:
     for ls in loaded:
         path = run.out_path("identities", file_base(ls.src.spec.path), when=ls.src.begin)
@@ -96,7 +123,8 @@ def stage_identity(run: Run, loaded: list[LoadedSource]) -> None:
 def stage_audit(run: Run, loaded: list[LoadedSource], relations: list[Relation]) -> None:
     for ls in loaded:
         for p in ls.profiles:
-            run.write(run.out_path("audits", p.dataset_id), md.render_audit(ls.src, p))
+            run.write(run.out_path("audits", p.dataset_id),
+                      md.render_audit(ls.src, p, _spec_label(run.settings)))
             run.write(run.out_path("audits", p.dataset_id, ext="json"), _json(p.to_dict()))
     profiles = [p for ls in loaded for p in ls.profiles]
     run.write(run.out_path("audits", "cartographie"), md.render_cartography(profiles, relations))
@@ -141,8 +169,9 @@ def write_manifest(run: Run, loaded: list[LoadedSource], stages: list[str]) -> P
         "started_at": run.started_at.isoformat(timespec="seconds"),
         "finished_at": datetime.now().isoformat(timespec="seconds"),
         "stages": stages,
-        "config": {"path": str(run.settings.config_path.relative_to(run.settings.root)),
+        "config": {"path": _rel(run.settings, run.settings.config_path),
                    "sha256": run.settings.config_sha256},
+        "findings_spec": _spec_fingerprint(run.settings),
         "versions": {"indusense": __version__, "python": platform.python_version(),
                      "pandas": pd.__version__},
         "inputs": [{"path": str(ls.src.spec.path.relative_to(run.settings.root)).replace("\\", "/"),
@@ -166,14 +195,14 @@ def run_pipeline(settings: Settings, stages: list[str], source_ids: list[str] | 
     if not specs:
         log.warning("aucune source trouvée dans %s (motifs : %s)",
                     settings.data_dir, ", ".join(settings.discovery_patterns))
-    loaded = load_and_profile(specs, settings)
-    datasets = [ds for ls in loaded for ds in ls.src.datasets]
-
     contracts = load_contracts(settings.contracts_dir) if settings.contracts_dir.exists() else {}
     for cid, c in contracts.items():
-        for err in structure_errors(c):
+        for err in structure_errors(c, set(settings.audit.rules)):
             log.error("contrat %s : %s", cid, err)
-    relations = map_relations(datasets, declared_references(contracts))
+    loaded = load_and_profile(specs, settings, contracts)
+    datasets = [ds for ls in loaded for ds in ls.src.datasets]
+    relations = map_relations(datasets, declared_references(contracts),
+                              settings.relation_ignore_columns)
 
     if "identity" in stages:
         stage_identity(run, loaded)

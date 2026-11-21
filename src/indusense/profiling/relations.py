@@ -1,7 +1,7 @@
 """Cartographie : relations entre jeux de données et intégrité référentielle.
 
 Deux sources de relations :
-- déclarées dans les contrats (`references: machine.machine_code`) ;
+- déclarées dans les contrats (`references: <jeu>.<colonne>`) ;
 - détectées automatiquement (même nom de colonne dans deux jeux de données).
 """
 from __future__ import annotations
@@ -41,9 +41,12 @@ def measure(parent: Dataset, pcol: str, child: Dataset, ccol: str, origin: str) 
                     len(orphans), orphans[:10])
 
 
-def map_relations(datasets: list[Dataset],
-                  declared: list[tuple[str, str, str, str]]) -> list[Relation]:
-    """`declared` : (dataset enfant, colonne enfant, dataset parent, colonne parent)."""
+def map_relations(datasets: list[Dataset], declared: list[tuple[str, str, str, str]],
+                  ignore_columns: frozenset[str] = frozenset()) -> list[Relation]:
+    """`declared` : (dataset enfant, colonne enfant, dataset parent, colonne parent).
+
+    `ignore_columns` : noms exclus de la détection automatique (config `relations`).
+    """
     by_id = {d.id: d for d in datasets}
     rels, seen = [], set()
     for child, ccol, parent, pcol in declared:
@@ -55,7 +58,7 @@ def map_relations(datasets: list[Dataset],
         for b in datasets[i + 1:]:
             for col in sorted(set(a.df.columns) & set(b.df.columns)):
                 key = frozenset({(a.id, col), (b.id, col)})
-                if key in seen or col in {"created_at", "updated_at"}:
+                if key in seen or col in ignore_columns:
                     continue
                 # Le parent est le côté où la colonne est unique (référentiel) ;
                 # en n-n, on garde le sens qui révèle le plus d'orphelines

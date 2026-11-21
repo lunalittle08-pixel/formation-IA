@@ -1,0 +1,92 @@
+{
+  "run_id": "20261121_194422",
+  "started_at": "2026-11-21T19:44:22",
+  "finished_at": "2026-11-21T19:44:33",
+  "stages": [
+    "identity",
+    "audit",
+    "draft",
+    "validate"
+  ],
+  "config": {
+    "path": "configs\\pipeline.yaml",
+    "sha256": "7ee5878aecd110b54addb99e49eb0303689e5bc6bf63462e3e16152431de81dc"
+  },
+  "versions": {
+    "indusense": "0.1.0",
+    "python": "3.15.0rc2",
+    "pandas": "3.1.1"
+  },
+  "inputs": [
+    {
+      "path": "datas/machine.sql",
+      "sha256": "9eb877ae806515e852df46dd9f97f31aabfa8420a8f07dc50a5be4cefced8fcb",
+      "size_bytes": 22947,
+      "charset": "UTF-8",
+      "datasets": {
+        "machine": [
+          15,
+          11
+        ],
+        "maintenance": [
+          115,
+          11
+        ]
+      }
+    },
+    {
+      "path": "datas/releves_incidents.csv",
+      "sha256": "be7204b3320a39fa2c58f4be10bc5013fd74ab63aa4a5a5399fb0d151846110a",
+      "size_bytes": 137869,
+      "charset": "UTF-8",
+      "datasets": {
+        "releves_incidents": [
+          1245,
+          18
+        ]
+      }
+    },
+    {
+      "path": "datas/telemetry.csv",
+      "sha256": "68ec8dd09b691e6810d26626d17191414482552112e31cac04f110f3bb58fb6c",
+      "size_bytes": 8323471,
+      "charset": "ASCII (compatible UTF-8)",
+      "datasets": {
+        "telemetry": [
+          135626,
+          7
+        ]
+      }
+    }
+  ],
+  "outputs": [
+    "artifacts/ingestion/identities/20261121/machine_194422.md",
+    "artifacts/ingestion/identities/20261121/releves_incidents_194422.md",
+    "artifacts/ingestion/identities/20261121/telemetry_194423.md",
+    "artifacts/ingestion/audits/20261121/machine_194422.md",
+    "artifacts/ingestion/audits/20261121/machine_194422.json",
+    "artifacts/ingestion/audits/20261121/maintenance_194422.md",
+    "artifacts/ingestion/audits/20261121/maintenance_194422.json",
+    "artifacts/ingestion/audits/20261121/releves_incidents_194422.md",
+    "artifacts/ingestion/audits/20261121/releves_incidents_194422.json",
+    "artifacts/ingestion/audits/20261121/telemetry_194422.md",
+    "artifacts/ingestion/audits/20261121/telemetry_194422.json",
+    "artifacts/ingestion/audits/20261121/cartographie_194422.md",
+    "artifacts/ingestion/audits/20261121/cartographie_194422.json",
+    "artifacts/ingestion/contracts/drafts/20261121_194422/machine.yaml",
+    "artifacts/ingestion/contracts/drafts/20261121_194422/maintenance.yaml",
+    "artifacts/ingestion/contracts/drafts/20261121_194422/releves_incidents.yaml",
+    "artifacts/ingestion/contracts/drafts/20261121_194422/telemetry.yaml",
+    "artifacts/ingestion/validations/20261121/validation_194422.md",
+    "artifacts/ingestion/validations/20261121/validation_194422.json"
+  ],
+  "summary": {
+    "validation": {
+      "machine": true,
+      "maintenance": false,
+      "releves_incidents": true,
+      "telemetry": false
+    },
+    "without_contract": []
+  }
+}
