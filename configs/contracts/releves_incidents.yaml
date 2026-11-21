@@ -1,0 +1,96 @@
+# Contrat de données — relevés d'incidents opérateurs
+# Généré par `indusense contract draft`, puis relu et complété (décisions tracées en commentaire).
+apiVersion: indusense/v1
+kind: DataContract
+contract:
+  id: releves_incidents
+  version: 1.0.0
+  status: active
+  owner: "TODO: responsable maintenance (producteur des relevés)"
+  description: >
+    Incidents signalés par les opérateurs sur les machines de production :
+    gravité, type d'incident (encodage one-hot), équipe, commentaire libre.
+    Source des étiquettes de panne pour le modèle de maintenance prédictive.
+source:
+  path: datas/releves_incidents.csv
+  format: csv
+  encoding: utf-8
+  separator: ","
+schema:
+  primary_key: [incident_id]
+  allow_extra_columns: false
+  columns:
+    - name: incident_id
+      type: IDENTITY
+      description: Identifiant unique de l'incident
+      required: true
+      unique: true
+      pattern: '^INC-\d{6}$'
+
+    - name: date
+      type: DATETIME
+      description: Date de l'incident (sans heure)
+      required: true
+      min: "2025-01-01"           # décision : début de l'historique InduSense
+
+    - name: time
+      type: TIME
+      description: Heure locale de l'incident (HH:MM)
+      required: true
+
+    - name: operator_name
+      type: CATEGORY
+      description: Nom de l'opérateur déclarant
+      required: true
+      pii: true
+      privacy: drop               # décision C2 : inutile au modèle, le badge suffit à la traçabilité
+
+    - name: machine_id
+      type: IDENTITY
+      description: Machine concernée
+      required: true
+      pattern: '^MACH-\d{2}$'
+      references: machine.machine_code   # intégrité référentielle avec le référentiel machines
+
+    - name: severity
+      type: INTEGER
+      description: Gravité déclarée par l'opérateur
+      unit: échelle 1 (mineur) à 5 (critique)
+      required: true
+      min: 1
+      max: 5
+
+    - name: operator_badge
+      type: CATEGORY
+      description: Badge de l'opérateur
+      required: true
+      pattern: '^OP\d{4}$'
+      pii: true
+      privacy: pseudonymize       # décision C2 : hash salé, garde la possibilité d'analyse par opérateur
+
+    - name: comment
+      type: TEXT
+      description: Commentaire libre de l'opérateur
+      max_missing_pct: 25
+      on_fail: warning            # texte libre : un manque n'est pas bloquant
+      pii: true
+      privacy: to_decide          # risque : du texte libre peut contenir des noms
+
+    - name: shift
+      type: CATEGORY
+      description: Équipe au moment de l'incident
+      required: true
+      allowed_values: [matin, apres-midi, nuit]
+
+    - {name: type_surchauffe,        type: BOOLEAN, required: true, description: "Type d'incident (one-hot)"}
+    - {name: type_baisse_pression,   type: BOOLEAN, required: true, description: "Type d'incident (one-hot)"}
+    - {name: type_vibration,         type: BOOLEAN, required: true, description: "Type d'incident (one-hot)"}
+    - {name: type_bruit_mecanique,   type: BOOLEAN, required: true, description: "Type d'incident (one-hot)"}
+    - {name: type_surconsommation,   type: BOOLEAN, required: true, description: "Type d'incident (one-hot)"}
+    - {name: type_blocage_mecanique, type: BOOLEAN, required: true, description: "Type d'incident (one-hot)"}
+    - {name: type_alarme_capteur,    type: BOOLEAN, required: true, description: "Type d'incident (one-hot)"}
+    - {name: type_arret_urgence,     type: BOOLEAN, required: true, description: "Type d'incident (one-hot)"}
+    - {name: type_defaut_qualite,    type: BOOLEAN, required: true, description: "Type d'incident (one-hot)"}
+quality:
+  min_rows: 1
+  max_duplicate_rows: 0

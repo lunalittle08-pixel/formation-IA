@@ -1,0 +1,29 @@
+# Environnement Python / uv
+.venv/
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.ruff_cache/
+
+# Jupyter
+.ipynb_checkpoints/
+
+# Données sources : à NE PAS publier sans accord du formateur (retirer la ligne si autorisé)
+datas/
+
+# Sorties générées : reproductibles avec `uv run indusense run`.
+# On versionne seulement les manifestes, qui tracent ce qui a été produit et à partir de quoi.
+artifacts/**
+!artifacts/
+!artifacts/ingestion/
+!artifacts/ingestion/runs/
+!artifacts/ingestion/runs/**
+
+# Éditeurs / OS
+.vscode/*
+!.vscode/extensions.json
+.DS_Store
+Thumbs.db
+
+# Secrets
+.env

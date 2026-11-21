@@ -1,0 +1,32 @@
+import json
+import re
+
+from indusense.cli import main
+from indusense.pipeline import STAGES, run_pipeline
+
+
+def test_pipeline_complet(settings, real_contracts):
+    run = run_pipeline(settings, list(STAGES))
+    outs = run.outputs
+
+    # Cartes d'identité au format du TP1 : identities/AAAAMMJJ/<fichier>_HHMMSS.md
+    cards = [o for o in outs if "/identities/" in o]
+    assert any(re.search(r"identities/\d{8}/releves_incidents_\d{6}\.md$", o) for o in cards)
+    assert any(re.search(r"identities/\d{8}/machine_\d{6}\.md$", o) for o in cards)
+    card = (settings.root / next(o for o in cards if "releves" in o)).read_text(encoding="utf-8")
+    for field in ("- Source:", "- Filesize :", "- ProcessBeginAt:", "- ProcessEndAt:",
+                  "- Charset: ISO-8859-1", "- Rows Number : 3", "- Cols Number : 7",
+                  "| Colname | Infered Type |"):
+        assert field in card
+
+    # Validation : MACH-99 absente du référentiel machine => violation de référence
+    assert run.summary["validation"]["releves_incidents"] is False
+    manifest = settings.artifact_dir("runs") / run.run_id / "manifest.json"
+    data = json.loads(manifest.read_text(encoding="utf-8"))
+    assert len(data["inputs"]) == 2 and data["config"]["sha256"]
+
+
+def test_cli_code_retour(project, real_contracts):
+    cfg = str(project / "configs" / "pipeline.yaml")
+    assert main(["--config", cfg, "contract", "check"]) == 0
+    assert main(["--config", cfg, "validate"]) == 1     # données non conformes => échec CI

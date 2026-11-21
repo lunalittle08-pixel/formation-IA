@@ -1,0 +1,41 @@
+# Contrat de données — historique des interventions (table `maintenance` du script SQL)
+apiVersion: indusense/v1
+kind: DataContract
+contract:
+  id: maintenance
+  version: 0.1.0
+  status: draft
+  owner: "TODO: maintenance"
+  description: Interventions préventives et correctives réalisées sur les machines.
+source:
+  path: datas/machine.sql
+  format: sql
+  table: maintenance
+  sql_dialect: postgres
+schema:
+  primary_key: [maintenance_id]
+  allow_extra_columns: false
+  columns:
+    - {name: maintenance_id, type: IDENTITY, required: true, unique: true, declared_type: INT,
+       description: Identifiant de l'intervention}
+    - {name: machine_code, type: IDENTITY, required: true, pattern: '^MACH-\d{2}$',
+       references: machine.machine_code, declared_type: VARCHAR(16), description: Machine concernée}
+    - {name: maintenance_at, type: DATETIME, required: true, declared_type: TIMESTAMPTZ,
+       description: "Début de l'intervention (avec fuseau, converti en UTC)"}
+    - {name: maintenance_type, type: CATEGORY, required: true, allowed_values: [preventive, corrective],
+       declared_type: VARCHAR(16), description: Nature de l'intervention}
+    - {name: action_type, type: CATEGORY, declared_type: VARCHAR(32), description: Action réalisée}
+    - {name: component, type: CATEGORY, declared_type: VARCHAR(64), description: Composant concerné}
+    - {name: description, type: TEXT, declared_type: TEXT, on_fail: warning,
+       description: Compte rendu libre}
+    - {name: related_incident_id, type: IDENTITY, pattern: '^INC-\d{6}$', declared_type: VARCHAR(16),
+       references: releves_incidents.incident_id, on_fail: warning,
+       description: "Incident à l'origine d'une intervention corrective (vide si préventive)"}
+    - {name: duration_hours, type: FLOAT, min: 0, max: 72, unit: h, declared_type: "DECIMAL(6, 2)",
+       description: Durée de l'intervention}   # TODO valider la borne max
+    - {name: created_at, type: DATETIME, declared_type: TIMESTAMPTZ, description: Création de l'enregistrement}
+    - {name: updated_at, type: DATETIME, declared_type: TIMESTAMPTZ, on_fail: warning,
+       description: Dernière modification}
+quality:
+  min_rows: 1
+  max_duplicate_rows: 0
