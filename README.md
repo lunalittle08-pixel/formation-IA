@@ -3,8 +3,9 @@
 Projet fil rouge (maintenance prédictive) de la formation **« Concevoir et implémenter une
 solution d'IA »**. Sprint 1 : *cadrer et fiabiliser les données* (compétences C1, C2, C3).
 
-Le pipeline est **piloté par la configuration** : une nouvelle source se traite en ajoutant
-une ligne dans `configs/pipeline.yaml` et un contrat dans `configs/contracts/`, sans écrire de code.
+Le pipeline est **piloté par la configuration** et **découvre seul les fichiers** de `datas/` :
+une nouvelle source se traite en déposant le fichier et en ajoutant son contrat dans
+`configs/contracts/`, sans écrire de code ni déclarer de nom de fichier.
 
 ## Démarrage
 
@@ -23,7 +24,31 @@ uv run pytest                         # tests
 | `uv run indusense validate` | Données vs contrats (attendu) | `validations/AAAAMMJJ/validation_*.md/.json` |
 | `uv run indusense run` | Tout | + `runs/<run_id>/manifest.json` |
 
-Option `--source <id>` (répétable) pour ne traiter qu'une partie des sources.
+Option `--source <id>` (répétable) pour ne traiter qu'une partie des sources. L'identifiant
+d'une source est le nom de son fichier sans extension (`telemetry.csv` → `telemetry`,
+`machine.sql` → `machine`).
+
+## Découverte des sources
+
+Tout fichier de `datas/` correspondant à un motif de `discovery.patterns` est traité
+(par défaut `*.csv`, `*.tsv`, `*.sql`, `*.sql.txt`). Encodage et séparateur sont détectés,
+le format est déduit de l'extension. Pour imposer une option de lecture, on ajoute une règle
+**par motif** dans `discovery.overrides` (la dernière règle qui correspond l'emporte) :
+
+```yaml
+discovery:
+  patterns: ["*.csv", "*.tsv", "*.sql", "*.sql.txt"]
+  overrides:
+    - match: "*.sql*"          # tous les scripts SQL
+      format: sql
+      sql_dialect: postgres
+    - match: "export_*.csv"    # exemple : exports d'un logiciel en cp1252 et « ; »
+      encoding: cp1252
+      separator: ";"
+```
+
+Si deux fichiers ont le même nom de base (`machine.csv` et `machine.sql`), le second reçoit un
+identifiant tiré de son nom complet (`machine_sql`) et un avertissement est affiché.
 
 ## Flux
 
@@ -51,7 +76,7 @@ indusense/
 │       └── data-contract/SKILL.md      #   contrats : création, validation, échecs, versions
 ├── CLAUDE.md                           # règles du projet pour l'agent (Git, données, code)
 ├── configs/
-│   ├── pipeline.yaml                   # sources, chemins, seuils d'inférence et d'audit
+│   ├── pipeline.yaml                   # chemins, découverte des sources, seuils d'inférence et d'audit
 │   └── contracts/                      # contrats de données = ce qu'on ATTEND
 │       ├── releves_incidents.yaml
 │       ├── telemetry.yaml
@@ -103,7 +128,8 @@ indusense/
 
 ## Ajouter une nouvelle source
 
-1. Déposer le fichier dans `datas/` et le déclarer dans `configs/pipeline.yaml` (`sources:`).
+1. Déposer le fichier dans `datas/` : il est découvert automatiquement. Si sa lecture demande
+   une option particulière, ajouter une règle par motif dans `discovery.overrides`.
 2. `uv run indusense identity` puis `uv run indusense audit` : lire la carte et l'audit.
 3. `uv run indusense contract draft` : copier le brouillon dans `configs/contracts/`, le compléter.
 4. `uv run indusense contract check` puis `uv run indusense validate`.
