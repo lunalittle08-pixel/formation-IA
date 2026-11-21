@@ -1,0 +1,41 @@
+# =============================================================================
+# InduSense — spécification métier des constats d'audit
+#
+# Surcharge, règle par règle, le catalogue par défaut du package
+# (src/indusense/profiling/default_findings.yaml : liste des règles, de leurs
+# variables et de leurs seuils). Ne mettre ici QUE ce qui diffère du défaut.
+#
+# Clés possibles par règle : severity, enabled, params (fusionnés), message, hypothesis.
+#   - message    : le FAIT mesuré (gabarit Python, variables {…} du détecteur ou des params)
+#   - hypothesis : piste d'explication FOURNIE PAR LE MÉTIER, affichée dans une colonne
+#                  séparée du rapport. Ne pas en inventer : la renseigner après échange
+#                  avec le métier, en citant la source si possible.
+# Une exception propre à UNE colonne se déclare dans son contrat (clé `audit:` + `reason`).
+# Toute modification de seuil est justifiée (commentaire + message de commit).
+# =============================================================================
+rules:
+  pii_suspected:
+    params:
+      # Motif repris de la configuration initiale du projet (vocabulaire du site :
+      # badge, matricule, operator). Non ancré : « nom » détecte aussi « nombre ».
+      name_pattern: '(e-?mail|mail|nom|prenom|name|tel|phone|adresse|address|iban|nir|badge|matricule|operator)'
+      # Numéros français (0X XX XX XX XX ou +33…), repris de la version initiale du code
+      phone_pattern: '^(\+33|0)[1-9](\s?\d{2}){4}$'
+
+  # ---------------------------------------------------------------------------
+  # Hypothèses À VALIDER AVEC LE MÉTIER avant activation (décommenter alors).
+  # Elles figuraient en dur dans la version initiale du code ; elles ne sont pas
+  # confirmées et ne doivent pas apparaître dans les rapports en l'état.
+  # ---------------------------------------------------------------------------
+  # iqr_outliers:
+  #   hypothesis: "erreur capteur ou phénomène réel ?"
+  # repeated_extreme:
+  #   hypothesis: "saturation capteur ou code d'erreur ?"
+  # isolated_negatives:
+  #   hypothesis: "valeur sentinelle ?"
+  # missing_high:
+  #   hypothesis: "colonne candidate à la suppression"
+  # missing_moderate:
+  #   hypothesis: "stratégie d'imputation à définir"
+  # pii_suspected:            # (fusionner avec le bloc ci-dessus)
+  #   hypothesis: "minimiser / pseudonymiser (C2)"

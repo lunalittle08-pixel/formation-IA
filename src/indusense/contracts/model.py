@@ -11,6 +11,7 @@ from pathlib import Path
 
 import yaml
 
+from indusense.profiling.findings_spec import column_override_errors
 from indusense.profiling.types import LOGICAL_TYPES
 
 CONTRACT_KIND = "DataContract"
@@ -19,7 +20,7 @@ STATUSES = {"draft", "active", "deprecated"}
 PRIVACY_ACTIONS = {"keep", "drop", "pseudonymize", "aggregate", "to_decide"}
 COLUMN_KEYS = {"name", "type", "description", "unit", "required", "unique", "min", "max",
                "allowed_values", "pattern", "max_missing_pct", "references", "pii",
-               "privacy", "on_fail", "declared_type", "observed"}
+               "privacy", "on_fail", "declared_type", "observed", "audit"}
 
 
 def load_contract(path: Path) -> dict:
@@ -55,8 +56,11 @@ def load_contracts(contracts_dir: Path) -> dict[str, dict]:
     return out
 
 
-def structure_errors(contract: dict) -> list[str]:
-    """Contrôle la forme du contrat (pas les données) : à lancer en CI."""
+def structure_errors(contract: dict, rule_ids: set[str] | None = None) -> list[str]:
+    """Contrôle la forme du contrat (pas les données) : à lancer en CI.
+
+    `rule_ids` : règles de constats connues, pour contrôler les clés `audit:` des colonnes.
+    """
     errs = []
     if contract.get("kind") != CONTRACT_KIND:
         errs.append(f"kind doit valoir {CONTRACT_KIND}")
@@ -80,6 +84,8 @@ def structure_errors(contract: dict) -> list[str]:
             errs.append(f"{c.get('name')} : clés inconnues {sorted(unknown)}")
         if c.get("privacy") and c["privacy"] not in PRIVACY_ACTIONS:
             errs.append(f"{c.get('name')} : privacy invalide {c['privacy']}")
+        if "audit" in c:
+            errs += column_override_errors(c.get("name"), c["audit"], rule_ids or set())
     for pk in contract.get("schema", {}).get("primary_key", []) or []:
         if pk not in names:
             errs.append(f"clé primaire {pk} absente des colonnes")

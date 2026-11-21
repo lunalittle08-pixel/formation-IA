@@ -51,16 +51,14 @@ inference:
   bool_values: ["0", "1", "true", "false", "oui", "non", "yes", "no", "t", "f"]
 
 # -----------------------------------------------------------------------------
-# Règles d'audit (guide data audit — dimensions de qualité). Seuils à justifier.
+# Audit qualité (guide data audit — dimensions de qualité)
+# Les règles de constats (textes, sévérités, SEUILS) sont dans un catalogue :
+#   - par défaut : src/indusense/profiling/default_findings.yaml (faits seuls, générique) ;
+#   - surchargé par la spécification métier du projet ci-dessous (facultative : si le
+#     fichier n'existe pas, le catalogue par défaut s'applique).
+# Une exception propre à une colonne se déclare dans son contrat (clé `audit:` + `reason`).
 # -----------------------------------------------------------------------------
 audit:
-  missing_warn_pct: 5           # complétude : au-delà, stratégie d'imputation à définir
-  missing_drop_pct: 60          # au-delà, colonne candidate à la suppression
-  outlier_iqr_factor: 1.5       # exactitude : règle de Tukey
-  repeated_extreme_min: 5       # valeur min/max répétée => saturation / code d'erreur
-  underrepresented_ratio: 0.3   # représentativité : modalité < 30 % de la médiane
-  imbalance_ratio: 10           # déséquilibre : majoritaire / minoritaire
-  redundant_corr: 0.95          # colonnes numériques probablement redondantes
-  pii_name_pattern: '(e-?mail|mail|nom|prenom|name|tel|phone|adresse|address|iban|nir|badge|matricule|operator)'
-  # Variables cibles candidates (déséquilibre de classes)
+  findings_spec: configs/findings.yaml
+  # Variables cibles candidates (distribution de classes)
   targets: []

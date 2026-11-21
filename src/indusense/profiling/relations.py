@@ -1,7 +1,7 @@
 """Cartographie : relations entre jeux de données et intégrité référentielle.
 
 Deux sources de relations :
-- déclarées dans les contrats (`references: machine.machine_code`) ;
+- déclarées dans les contrats (`references: <jeu>.<colonne>`) ;
 - détectées automatiquement (même nom de colonne dans deux jeux de données).
 """
 from __future__ import annotations

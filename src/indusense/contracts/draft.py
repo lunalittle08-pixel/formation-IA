@@ -65,7 +65,7 @@ def draft_column(p: ColumnProfile, raw: pd.Series) -> dict:
         if pat:
             col["pattern"] = pat
     if p.type in NUMERIC_TYPES | {"DATETIME", "TIME"} and p.stats:
-        # Bornes observées : à remplacer par les bornes MÉTIER (plage physique du capteur)
+        # Bornes observées : à remplacer par les bornes MÉTIER (plage plausible fixée par le métier)
         col["min"], col["max"] = _fmt(p.stats["min"]), _fmt(p.stats["max"])
     if p.type in {"CATEGORY", "BOOLEAN"} and p.top_values:
         col["allowed_values"] = sorted(p.top_values)

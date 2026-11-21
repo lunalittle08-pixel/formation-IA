@@ -1,0 +1,137 @@
+# =============================================================================
+# Catalogue PAR DÉFAUT des règles de constats d'audit (livré avec le package).
+#
+# Générique : aucun vocabulaire métier. Les messages énoncent des FAITS mesurés,
+# sans hypothèse ni recommandation. Une spécification métier de projet
+# (pipeline.yaml > audit.findings_spec) peut, règle par règle :
+#   - ajouter une `hypothesis` (piste d'explication fournie par le métier) ;
+#   - changer `severity`, `params`, `message` ; désactiver (`enabled: false`).
+#
+# Champs d'une règle :
+#   dimension  : complétude | unicité | validité | cohérence | exactitude |
+#                représentativité | conformité
+#   severity   : info | warning | error
+#   params     : seuils du détecteur (lus par le code)
+#   message    : gabarit Python ; variables {…} = mesures du détecteur ou params
+#   hypothesis : gabarit facultatif (vide par défaut)
+# =============================================================================
+rules:
+  # ------------------------------------------------------------ complétude
+  empty_column:
+    dimension: complétude
+    severity: error
+    message: "colonne entièrement vide"
+
+  missing_high:
+    dimension: complétude
+    severity: error
+    params: {threshold_pct: 60}
+    message: "{pct:.1f} % de valeurs manquantes (seuil {threshold_pct} %)"
+
+  missing_moderate:
+    dimension: complétude
+    severity: warning
+    params: {threshold_pct: 5}
+    message: "{pct:.1f} % de valeurs manquantes (seuil {threshold_pct} %)"
+
+  time_gaps:
+    dimension: complétude
+    severity: info
+    params: {gap_factor: 2}
+    message: "{count} écarts temporels supérieurs à {gap_factor} × le pas habituel de l'entité ; maximum {max_count} pour {entity}"
+
+  # ------------------------------------------------------------ unicité
+  duplicate_rows:
+    dimension: unicité
+    severity: warning
+    message: "{count} lignes dupliquées à l'identique"
+
+  composite_key_duplicates:
+    dimension: unicité
+    severity: warning
+    message: "{count} doublons sur la clé composite ({entity}, {time})"
+
+  identity_incomplete:
+    dimension: unicité
+    severity: info
+    message: "identifiant unique sur les valeurs présentes, mais {missing} valeurs manquantes"
+
+  # ------------------------------------------------------------ validité
+  constant_column:
+    dimension: validité
+    severity: warning
+    message: "valeur constante sur toutes les lignes : {value!r}"
+
+  isolated_negatives:
+    dimension: validité
+    severity: warning
+    params: {max_share: 0.05}
+    message: "{count} valeurs négatives ({share:.2%} des valeurs présentes)"
+
+  redundant_columns:
+    dimension: validité
+    severity: info
+    params: {min_corr: 0.95}
+    message: "corrélation absolue {corr:.3f} entre les deux colonnes"
+
+  # ------------------------------------------------------------ cohérence
+  inconsistent_labels:
+    dimension: cohérence
+    severity: warning
+    message: "modalités incohérentes (ne diffèrent que par la casse ou les espaces) : {groups}"
+
+  # ------------------------------------------------------------ exactitude
+  iqr_outliers:
+    dimension: exactitude
+    severity: warning
+    params: {factor: 1.5}           # règle de Tukey
+    message: "{count} valeurs hors bornes IQR [{low:.4g} ; {high:.4g}] (facteur {factor})"
+
+  repeated_extreme:
+    dimension: exactitude
+    severity: warning
+    params: {min_repeats: 5, min_distinct: 20}
+    message: "valeur {bound} {value} répétée {count} fois"
+
+  skewed_distribution:
+    dimension: exactitude
+    severity: info
+    params: {min_abs_skew: 1}
+    message: "distribution asymétrique (skew={skew:.2f}) : les bornes IQR supposent une distribution symétrique"
+
+  # ------------------------------------------------------------ représentativité
+  class_imbalance:
+    dimension: représentativité
+    severity: warning
+    params: {ratio: 10}
+    message: "déséquilibre : '{rare}' ({rare_count}) vs '{major}' ({major_count}), rapport {ratio_observed:.1f}"
+
+  underrepresented:
+    dimension: représentativité
+    severity: warning
+    params: {ratio: 0.3}            # modalité < ratio × effectif médian
+    message: "modalités sous-représentées : {values} (effectif médian {median:.0f})"
+
+  sparse_entities:
+    dimension: représentativité
+    severity: warning
+    params: {step_factor: 1.5}
+    message: "fréquence plus faible pour {entities} (pas {step} vs {global_step} en général)"
+
+  target_distribution:
+    dimension: représentativité
+    severity: info
+    message: "distribution de la cible : {distribution}"
+
+  # ------------------------------------------------------------ conformité
+  pii_suspected:
+    dimension: conformité
+    severity: warning
+    params:
+      # Mots génériques (plusieurs langues) ; compléter dans la spec métier du projet
+      name_pattern: '(e-?mail|courriel|^nom$|_nom$|^nom_|prenom|first_?name|last_?name|full_?name|phone|t[eé]l[eé]phone|^tel$|adresse|address|iban|birth|naissance|ssn|passport|passeport)'
+      email_pattern: '^[\w.+-]+@[\w-]+\.[\w.]+$'
+      phone_pattern: '^\+\d{1,3}[\s.-]?\d(?:[\s.-]?\d){6,13}$'   # format international (+…)
+      min_share: 0.5                # part des valeurs échantillonnées au bon format
+      sample_rows: 500
+    message: "donnée personnelle possible ({reasons})"

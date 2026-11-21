@@ -8,7 +8,7 @@ import pandas as pd
 from indusense.contracts.validate import ValidationResult
 from indusense.io.files import get_source
 from indusense.io.readers import SourceFile
-from indusense.profiling.profile import DatasetProfile
+from indusense.profiling.profile import DatasetProfile, Finding
 from indusense.profiling.relations import Relation, mermaid_er
 
 SEVERITY_ICON = {"error": "🔴", "warning": "🟠", "info": "🔵"}
@@ -74,13 +74,47 @@ def render_identity(src: SourceFile, profiles: list[DatasetProfile]) -> str:
 
 
 # ------------------------------------------------------------------ audit
-def render_audit(src: SourceFile, p: DatasetProfile) -> str:
+def _findings_rows(findings: list[Finding], with_hypothesis: bool) -> list[list]:
+    """Lignes du tableau des constats actifs, triées par sévérité puis dimension."""
+    order = {"error": 0, "warning": 1, "info": 2}
+    rows = []
+    for f in sorted(findings, key=lambda f: (order[f.severity], f.dimension)):
+        row = [SEVERITY_ICON[f.severity], f.dimension, f"`{f.column}`", f.message]
+        rows.append(row + [f.hypothesis] if with_hypothesis else row)
+    return rows
+
+
+def _findings_section(p: DatasetProfile) -> list[str]:
+    """Constats actifs (fait + piste métier éventuelle) et constats neutralisés par contrat."""
+    lines = ["", "## Constats par dimension de qualité", ""]
+    active = p.active_findings
+    if active:
+        with_hyp = any(f.hypothesis for f in active)
+        headers = ["", "Dimension", "Colonne", "Constat"] + (["Piste (spéc. métier)"] if with_hyp else [])
+        lines += md_table(headers, _findings_rows(active, with_hyp))
+    else:
+        lines.append("_Aucun constat._")
+    suppressed = [f for f in p.findings if not f.active]
+    if suppressed:
+        lines += ["", "### Constats neutralisés par le contrat", "",
+                  "_Exceptions déclarées sur la colonne (clé `audit:`), avec leur justification._", ""]
+        lines += md_table(["Règle", "Colonne", "Constat", "Justification"],
+                          [[f"`{f.rule}`", f"`{f.column}`", f.message, f.suppressed]
+                           for f in suppressed])
+    return lines
+
+
+def render_audit(src: SourceFile, p: DatasetProfile, spec_label: str | None = None) -> str:
+    """Rapport d'audit d'un jeu de données ; `spec_label` = spécification métier utilisée."""
     title = p.dataset_id + (f" (table de {src.spec.path.name})" if p.table else "")
-    counts = {s: sum(f.severity == s for f in p.findings) for s in ("error", "warning", "info")}
+    counts = {s: sum(f.severity == s for f in p.active_findings) for s in ("error", "warning", "info")}
+    origin = (f"catalogue par défaut + spécification métier `{spec_label}`" if spec_label
+              else "catalogue par défaut (faits seuls, sans spécification métier)")
     lines = [f"# Audit qualité — {title}", "",
              f"_Généré le {datetime.now():%d/%m/%Y %H:%M}. Les constats sont produits par des "
-             "règles automatiques (seuils dans `configs/pipeline.yaml`) : chacun doit être "
-             "interprété et décidé avec le métier._", "",
+             f"règles automatiques ({origin}). La colonne « Constat » énonce un fait mesuré ; "
+             "toute piste d'explication vient de la spécification métier. Chaque constat doit "
+             "être interprété et décidé avec le métier._", "",
              "## Inventaire", ""]
     lines += md_table(["Source", "SHA-256", "Encodage", "Séparateur", "Lignes", "Colonnes",
                        "Doublons exacts"],
@@ -98,18 +132,11 @@ def render_audit(src: SourceFile, p: DatasetProfile) -> str:
           fmt_value(c.stats.get("min"), c.type) if c.stats else "",
           fmt_value(c.stats.get("max"), c.type) if c.stats else "",
           c.stats.get("n_outliers_iqr", ""), c.pii_suspected] for c in p.columns])
-    lines += ["", "## Constats par dimension de qualité", ""]
-    if p.findings:
-        order = {"error": 0, "warning": 1, "info": 2}
-        lines += md_table(["", "Dimension", "Colonne", "Constat"],
-                          [[SEVERITY_ICON[f.severity], f.dimension, f"`{f.column}`", f.message]
-                           for f in sorted(p.findings, key=lambda f: (order[f.severity], f.dimension))])
-    else:
-        lines.append("_Aucun constat._")
+    lines += _findings_section(p)
     lines += ["", "## Décisions (à compléter dans le notebook / le contrat)", "",
               "Pour chaque constat : **observation → hypothèse → vérification → décision → justification**.",
               "Les décisions se reportent dans le contrat (`configs/contracts/`) : bornes métier, "
-              "`allowed_values`, `privacy`, `on_fail`.", ""]
+              "`allowed_values`, `privacy`, `on_fail`, exceptions d'audit `audit:` (avec `reason`).", ""]
     return "\n".join(lines)
 
 

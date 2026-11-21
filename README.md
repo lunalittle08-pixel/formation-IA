@@ -50,6 +50,29 @@ discovery:
 Si deux fichiers ont le même nom de base (`machine.csv` et `machine.sql`), le second reçoit un
 identifiant tiré de son nom complet (`machine_sql`) et un avertissement est affiché.
 
+## Constats d'audit : faits dans le code, interprétation dans la spécification
+
+Le code ne fait que **mesurer** (détecteurs génériques). Le texte, la sévérité et les seuils de
+chaque constat viennent de règles, sur trois niveaux :
+
+| Niveau | Fichier | Contenu |
+|---|---|---|
+| 1. Défaut | `src/indusense/profiling/default_findings.yaml` | toutes les règles, **faits seuls**, aucun vocabulaire métier |
+| 2. Projet | `configs/findings.yaml` (déclaré par `audit.findings_spec`) | ce qui diffère du défaut : seuils, `hypothesis` fournie par le métier. Facultatif. |
+| 3. Colonne | contrat, clé `audit:` de la colonne | exception justifiée (`reason` obligatoire), tracée dans le rapport |
+
+```yaml
+# configs/findings.yaml
+rules:
+  repeated_extreme:
+    hypothesis: "limite de mesure de l'appareil ?"   # piste validée avec le métier
+    params: {min_repeats: 10}                        # seuil justifié
+```
+
+Dans le rapport, la colonne « Constat » donne le fait, la colonne « Piste (spéc. métier) »
+l'hypothèse éventuelle. Une variable inconnue dans un gabarit (`{cont}` au lieu de `{count}`)
+ou une règle inexistante arrêtent le chargement avec un message explicite.
+
 ## Flux
 
 ```mermaid
@@ -76,7 +99,8 @@ indusense/
 │       └── data-contract/SKILL.md      #   contrats : création, validation, échecs, versions
 ├── CLAUDE.md                           # règles du projet pour l'agent (Git, données, code)
 ├── configs/
-│   ├── pipeline.yaml                   # chemins, découverte des sources, seuils d'inférence et d'audit
+│   ├── pipeline.yaml                   # chemins, découverte des sources, inférence, audit
+│   ├── findings.yaml                   # spécification métier des constats (facultative)
 │   └── contracts/                      # contrats de données = ce qu'on ATTEND
 │       ├── releves_incidents.yaml
 │       ├── telemetry.yaml
@@ -95,7 +119,9 @@ indusense/
 │   │   └── readers.py                  # CSV (séparateur auto) et SQL (sqlglot) -> Dataset
 │   ├── profiling/
 │   │   ├── types.py                    # inférence de types (règles du TP1)
-│   │   ├── profile.py                  # statistiques + constats par dimension de qualité
+│   │   ├── profile.py                  # statistiques + détecteurs (mesures) par dimension
+│   │   ├── findings_spec.py            # règles de constats : chargement, fusion, contrôle
+│   │   ├── default_findings.yaml       # catalogue par défaut : faits seuls, générique
 │   │   └── relations.py                # relations, orphelines, ERD Mermaid
 │   ├── contracts/
 │   │   ├── model.py                    # format YAML, contrôle de structure
@@ -115,7 +141,8 @@ indusense/
 
 ## Principes
 
-- **Séparation config / code / décisions** : les seuils sont dans `pipeline.yaml`, les attentes
+- **Séparation config / code / décisions** : les seuils et textes des constats sont dans les
+  règles (`default_findings.yaml`, `findings.yaml`), les réglages dans `pipeline.yaml`, les attentes
   dans les contrats, le raisonnement dans le notebook. Le code ne contient aucune valeur métier.
 - **Observé ≠ attendu** : un brouillon de contrat décrit les données telles qu'elles sont ; le
   contrat validé décrit ce qu'elles doivent être. On ne l'assouplit pas pour « faire passer ».
