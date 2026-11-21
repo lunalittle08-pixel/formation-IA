@@ -7,6 +7,18 @@ Le pipeline est **piloté par la configuration** et **découvre seul les fichier
 une nouvelle source se traite en déposant le fichier et en ajoutant son contrat dans
 `configs/contracts/`, sans écrire de code ni déclarer de nom de fichier.
 
+## Documentation
+
+| Document | Contenu |
+|---|---|
+| [Index de la documentation](docs/README.md) | ordre de lecture, points restant à définir |
+| [Spécifications fonctionnelles](docs/01_specifications_fonctionnelles.md) | besoin, périmètre, acteurs, fonctions, critères d'acceptation |
+| [Dossier d'architecture](docs/02_dossier_architecture.md) | modules, flux, décisions de conception, extensions |
+| [Spécifications techniques](docs/03_specifications_techniques.md) | règles exactes : lecture, types, constats, contrats, sorties, CLI |
+| [Manuel utilisateur](docs/04_manuel_utilisateur.md) | commandes, lecture des rapports, questions fréquentes |
+| [Mode opératoire](docs/05_mode_operatoire.md) | procédures pas à pas |
+| [Dossier d'exploitation](docs/06_dossier_exploitation.md) | installation, exécution, codes retour, sauvegarde, incidents |
+
 ## Démarrage
 
 ```bash
@@ -80,6 +92,7 @@ flowchart LR
     D[datas/<br/>CSV, SQL] --> L[Lecture brute<br/>encodage, séparateur,<br/>SHA-256]
     C[configs/pipeline.yaml] --> L
     L --> P[Profil<br/>types, stats,<br/>constats qualité]
+    F[configs/findings.yaml] --> P
     P --> I[Cartes d'identité]
     P --> A[Audit +<br/>cartographie]
     P --> DR[Brouillons<br/>de contrats]
@@ -108,10 +121,18 @@ indusense/
 │       └── maintenance.yaml            #   table `maintenance` du script SQL
 ├── datas/                              # sources brutes, lecture seule (non versionnées)
 ├── docs/
+│   ├── README.md                       # index de la documentation
+│   ├── 01_specifications_fonctionnelles.md
+│   ├── 02_dossier_architecture.md
+│   ├── 03_specifications_techniques.md
+│   ├── 04_manuel_utilisateur.md
+│   ├── 05_mode_operatoire.md
+│   ├── 06_dossier_exploitation.md
 │   ├── methodo/data_audit.md           # guide méthodologique (CRISP-DM, ISO 25012, RGPD)
 │   └── datasheets/TEMPLATE.md          # modèle de datasheet (Gebru et al.)
 ├── notebooks/
 │   └── 01_audit_journal_de_bord.ipynb  # exécution + interprétation + décisions (livrable)
+├── tp1_identites_fichiers.ipynb        # notebook du TP1 (cartes d'identité, version initiale)
 ├── src/indusense/
 │   ├── config.py                       # lecture de pipeline.yaml en objets typés
 │   ├── io/
@@ -130,7 +151,7 @@ indusense/
 │   ├── reporting/markdown.py           # rendu des cartes, audits, validations
 │   ├── pipeline.py                     # orchestration des étapes + manifeste
 │   └── cli.py                          # commande `indusense`
-├── tests/                              # pytest : io, typage, contrats, pipeline
+├── tests/                              # pytest : io, typage, constats, relations, contrats, pipeline
 ├── artifacts/ingestion/                # sorties générées (seuls les manifestes sont versionnés)
 │   ├── identities/  audits/  validations/
 │   ├── contracts/drafts/
@@ -148,8 +169,10 @@ indusense/
   contrat validé décrit ce qu'elles doivent être. On ne l'assouplit pas pour « faire passer ».
 - **Lecture brute** : tout est lu en texte (`dtype=str`), puis typé explicitement. Aucune
   conversion silencieuse de pandas (décimales à virgule, dates ambiguës).
-- **Traçabilité** : chaque run écrit un manifeste avec l'empreinte SHA-256 des entrées, celle de
-  la configuration et les versions des outils.
+- **Traçabilité** : chaque run écrit un manifeste avec l'empreinte SHA-256 des entrées, celles de
+  la configuration et de la spécification des constats, et les versions des outils.
+- **Faits, pas d'interprétation** : le code mesure ; les hypothèses viennent de la spécification
+  métier ; en cas d'information manquante, on pose la question.
 - **CSV et SQL, même traitement** : un script SQL devient un jeu de données par table
   (`CREATE TABLE` + `INSERT`), puis suit le même chemin que les CSV.
 
@@ -161,3 +184,5 @@ indusense/
 3. `uv run indusense contract draft` : copier le brouillon dans `configs/contracts/`, le compléter.
 4. `uv run indusense contract check` puis `uv run indusense validate`.
 5. Interpréter et décider dans le notebook ; compléter la datasheet.
+
+Le détail de chaque procédure est dans le [mode opératoire](docs/05_mode_operatoire.md).
