@@ -21,21 +21,20 @@ rules:
       name_pattern: '(e-?mail|mail|nom|prenom|name|tel|phone|adresse|address|iban|nir|badge|matricule|operator)'
       # Numéros français (0X XX XX XX XX ou +33…), repris de la version initiale du code
       phone_pattern: '^(\+33|0)[1-9](\s?\d{2}){4}$'
+    hypothesis: "minimiser / pseudonymiser (C2)"
 
   # ---------------------------------------------------------------------------
-  # Hypothèses À VALIDER AVEC LE MÉTIER avant activation (décommenter alors).
-  # Elles figuraient en dur dans la version initiale du code ; elles ne sont pas
-  # confirmées et ne doivent pas apparaître dans les rapports en l'état.
+  # Hypothèses métier : formulées dans la version initiale du code, validées pour
+  # activation par l'utilisateur le 21/11/2026. Elles restent des PISTES à vérifier
+  # (voir le notebook de journal de bord), pas des conclusions.
   # ---------------------------------------------------------------------------
-  # iqr_outliers:
-  #   hypothesis: "erreur capteur ou phénomène réel ?"
-  # repeated_extreme:
-  #   hypothesis: "saturation capteur ou code d'erreur ?"
-  # isolated_negatives:
-  #   hypothesis: "valeur sentinelle ?"
-  # missing_high:
-  #   hypothesis: "colonne candidate à la suppression"
-  # missing_moderate:
-  #   hypothesis: "stratégie d'imputation à définir"
-  # pii_suspected:            # (fusionner avec le bloc ci-dessus)
-  #   hypothesis: "minimiser / pseudonymiser (C2)"
+  iqr_outliers:
+    hypothesis: "erreur capteur ou phénomène réel ? (à valider métier)"
+  repeated_extreme:
+    hypothesis: "saturation capteur ou code d'erreur ?"
+  isolated_negatives:
+    hypothesis: "valeur sentinelle ?"
+  missing_high:
+    hypothesis: "colonne candidate à la suppression"
+  missing_moderate:
+    hypothesis: "stratégie d'imputation à définir"
