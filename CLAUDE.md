@@ -37,3 +37,14 @@ uv run pytest                      # tests
 - Données personnelles (noms, badges, texte libre) : signaler et proposer une décision de minimisation.
 - Code : fonctions courtes à responsabilité unique, docstrings en français, test pytest pour toute
   nouvelle règle.
+
+## Généralité et non-interprétation
+- **Le code reste générique** : il doit fonctionner sur n'importe quel cas d'usage, n'importe
+  quelles données et n'importe quels noms de fichiers ou de colonnes. Aucun nom de fichier, de
+  colonne, de valeur métier, de seuil ou de vocabulaire propre à un domaine (machine, capteur,
+  opérateur…) dans `src/` : tout cela vit dans la config, les contrats ou une spécification métier.
+- **Les constats décrivent, ils n'interprètent pas** : un constat énonce un fait mesuré
+  (« valeur max 1900 répétée 93 fois »). Toute hypothèse ou piste d'explication vient d'une
+  spécification métier fournie par l'utilisateur, jamais d'une supposition de l'agent.
+- **En cas d'information manquante, poser la question** à l'utilisateur au lieu de supposer
+  (signification d'une valeur, borne métier, unité, règle de gestion, choix de conception).
