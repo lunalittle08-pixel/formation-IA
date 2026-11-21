@@ -74,6 +74,24 @@ def render_identity(src: SourceFile, profiles: list[DatasetProfile]) -> str:
 
 
 # ------------------------------------------------------------------ audit
+STAT_COLUMNS = [("Min", "min"), ("Max", "max"), ("Moyenne", "mean"), ("Médiane", "median"),
+                ("Écart-type", "std"), ("Q1", "q1"), ("Q3", "q3")]
+
+
+def _stats_section(p: DatasetProfile) -> list[str]:
+    """Statistiques des colonnes numériques et dates (métriques de la carte d'identité du TP1,
+    complétées par l'écart-type et les quartiles qui fondent les bornes IQR des constats).
+    Moyenne, médiane, écart-type et quartiles : numériques seulement (« — » pour les dates)."""
+    lines = ["", "## Statistiques des colonnes numériques et dates", ""]
+    cols = [c for c in p.columns if c.stats]
+    if not cols:
+        return lines + ["_Aucune colonne numérique ou date._"]
+    rows = [[c.name, c.type] + [fmt_value(c.stats["min"], c.type), fmt_value(c.stats["max"], c.type)]
+            + [fmt_value(c.stats.get(key), "FLOAT") for _, key in STAT_COLUMNS[2:]]
+            for c in cols]
+    return lines + md_table(["Colonne", "Type"] + [label for label, _ in STAT_COLUMNS], rows)
+
+
 def _findings_rows(findings: list[Finding], with_hypothesis: bool) -> list[list]:
     """Lignes du tableau des constats actifs, triées par sévérité puis dimension."""
     order = {"error": 0, "warning": 1, "info": 2}
@@ -116,9 +134,9 @@ def render_audit(src: SourceFile, p: DatasetProfile, spec_label: str | None = No
              "toute piste d'explication vient de la spécification métier. Chaque constat doit "
              "être interprété et décidé avec le métier._", "",
              "## Inventaire", ""]
-    lines += md_table(["Source", "SHA-256", "Encodage", "Séparateur", "Lignes", "Colonnes",
-                       "Doublons exacts"],
-                      [[src.spec.path.name, src.sha256[:12], src.charset,
+    lines += md_table(["Source", "Taille", "SHA-256", "Encodage", "Séparateur", "Lignes",
+                       "Colonnes", "Doublons exacts"],
+                      [[src.spec.path.name, src.size_label, src.sha256[:12], src.charset,
                         repr(src.separator) if src.separator else "—",
                         p.n_rows, p.n_cols, p.n_duplicate_rows]])
     lines += ["", f"**Constats** : {SEVERITY_ICON['error']} {counts['error']} bloquant(s) · "
@@ -132,6 +150,7 @@ def render_audit(src: SourceFile, p: DatasetProfile, spec_label: str | None = No
           fmt_value(c.stats.get("min"), c.type) if c.stats else "",
           fmt_value(c.stats.get("max"), c.type) if c.stats else "",
           c.stats.get("n_outliers_iqr", ""), c.pii_suspected] for c in p.columns])
+    lines += _stats_section(p)
     lines += _findings_section(p)
     lines += ["", "## Décisions (à compléter dans le notebook / le contrat)", "",
               "Pour chaque constat : **observation → hypothèse → vérification → décision → justification**.",

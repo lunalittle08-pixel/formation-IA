@@ -253,7 +253,7 @@ et `pattern` (forme commune des valeurs) pour les identifiants, bornes et modali
 | Étape | Fichier | Contenu |
 |---|---|---|
 | identity | `identities/AAAAMMJJ/<fichier>_HHMMSS.md` (heure de début de lecture) | carte d'identité |
-| audit | `audits/AAAAMMJJ/<jeu>_HHMMSS.md` et `.json` | rapport et profil complet (`DatasetProfile`) |
+| audit | `audits/AAAAMMJJ/<jeu>_HHMMSS.md` et `.json` | rapport (inventaire avec taille, profil des colonnes, statistiques min / max / moyenne / médiane / écart-type / Q1 / Q3, constats) et profil complet (`DatasetProfile`) |
 | audit | `audits/AAAAMMJJ/cartographie_HHMMSS.md` et `.json` | relations, diagramme Mermaid |
 | draft | `contracts/drafts/<run_id>/<jeu>.yaml` | brouillon de contrat |
 | validate | `validations/AAAAMMJJ/validation_HHMMSS.md` et `.json` | verdicts et violations |

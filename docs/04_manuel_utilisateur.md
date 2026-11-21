@@ -72,11 +72,16 @@ Types possibles : `IDENTITY` (identifiant), `INTEGER`, `FLOAT`, `BOOLEAN`, `DATE
 
 ### 4.2 Audit qualité — `audits/<jeu>_HHMMSS.md`
 
-1. **Inventaire** : source, empreinte, encodage, séparateur, taille, doublons exacts.
+1. **Inventaire** : source, taille du fichier, empreinte, encodage, séparateur, nombre de
+   lignes et de colonnes, doublons exacts.
 2. **Synthèse** : nombre de constats 🔴 bloquants, 🟠 à traiter, 🔵 pour information.
 3. **Profil des colonnes** : type, % de manquants, valeurs distinctes, clé candidate, min/max,
    valeurs hors bornes IQR, suspicion de donnée personnelle.
-4. **Constats par dimension de qualité** :
+4. **Statistiques des colonnes numériques et dates** : min, max, moyenne, médiane,
+   écart-type, quartiles Q1 et Q3. Moyenne, médiane, écart-type et quartiles ne concernent que
+   les colonnes numériques (« — » pour les dates et heures). Q1 et Q3 servent à calculer les
+   bornes IQR utilisées par les constats d'exactitude.
+5. **Constats par dimension de qualité** :
 
 | | Dimension | Colonne | Constat | Piste (spéc. métier) |
 |---|---|---|---|---|
@@ -85,7 +90,7 @@ Types possibles : `IDENTITY` (identifiant), `INTEGER`, `FLOAT`, `BOOLEAN`, `DATE
    - **Constat** : un fait mesuré, toujours vérifiable.
    - **Piste (spéc. métier)** : une hypothèse à vérifier, issue de `configs/findings.yaml`.
      Ce n'est **pas une conclusion**. La colonne n'apparaît que si la spécification en fournit.
-5. **Constats neutralisés par le contrat** (si présents) : constats attendus pour une colonne,
+6. **Constats neutralisés par le contrat** (si présents) : constats attendus pour une colonne,
    avec la justification écrite dans le contrat.
 
 Les dimensions :
