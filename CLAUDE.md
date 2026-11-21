@@ -5,8 +5,10 @@ maintenance prédictive (pannes machines). Sprint 1 : fiabiliser les données (C
 
 ## Organisation
 - `datas/` : sources brutes, **en lecture seule**. Ne jamais les modifier.
-- `configs/pipeline.yaml` : chemins, sources, seuils d'inférence et d'audit. Toute nouvelle source
-  se déclare ici, pas dans le code.
+- `configs/pipeline.yaml` : chemins, découverte des sources, seuils d'inférence et d'audit. Les
+  fichiers de `datas/` sont découverts automatiquement (id = nom sans extension) : aucun nom de
+  fichier en dur, ni dans le code ni dans la config ; une option de lecture s'impose par motif
+  (`discovery.overrides`).
 - `configs/contracts/*.yaml` : contrats de données (l'attendu). Versionnés, modifiés sur branche.
 - `src/indusense/` : package Python (logique réutilisable, testée).
 - `notebooks/` : journal de bord (exploration, interprétation, décisions). Le notebook importe le
