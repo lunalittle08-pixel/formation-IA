@@ -238,6 +238,7 @@ décision métier : elle se prend explicitement (dans le contrat), pas dans le c
 | S5 | Ligne qui enfreint une règle bloquante | **Quarantaine** dans `silver.<jeu>_rejects`, valeurs en texte et motifs `colonne:règle`. Clé primaire en double entre lignes valides : **toutes** les lignes en conflit partent en quarantaine | Ni correction ni perte silencieuse (partie 1.7) : rien ne permet de dire laquelle de deux mesures contradictoires est la bonne. Règles : obligatoire, type, format, liste de valeurs, bornes, unicité, clé primaire. |
 | S6 | Règle en `on_fail: warning` | Ligne conservée ; une valeur non convertible devient `NULL` ; tout est compté dans le bilan | C'est la sévérité choisie dans le contrat. |
 | S7 | Colonnes `privacy: drop` et colonnes absentes du contrat | **Retirées** du Silver (signalées) | Minimisation RGPD ; le Silver respecte le schéma du contrat. |
+| S7 bis | Champs de traçabilité (`traceability: true`) | **Non repris** au Silver, ni contrôlés (signalés au bilan) ; ils restent au Bronze | Décision du formateur (2026-11-26) : date de création, de modification, indicateur d'activité servent à tracer, pas à l'analyse. |
 | S8 | Colonnes pseudonymisées | Gardées sous forme de pseudonyme, **sans contrôle de format ni de liste** | Leurs valeurs sont des empreintes : `^OP\d{4}$` ne peut plus correspondre. |
 | S9 | Valeurs extrêmes dans les bornes | **Conservées** | En maintenance prédictive, l'extrême est souvent le signal recherché. |
 | S10 | Lignage | Colonne `bronze_hash` sur chaque ligne Silver et en quarantaine | De toute ligne Silver, on remonte à la ligne Bronze, donc au fichier. |
@@ -470,7 +471,7 @@ layers:
 
 Rien à changer dans vos contrats : ce sont eux qui portent les règles du Silver (`type`,
 `required`, `pattern`, `allowed_values`, `min`, `max`, `unique`, `primary_key`, `on_fail`,
-`pii`, `privacy`). **Améliorer le Silver, c'est donc améliorer les contrats.**
+`pii`, `privacy`, `traceability`). **Améliorer le Silver, c'est donc améliorer les contrats.**
 
 `src/indusense/config.py` reçoit une seule modification, pour connaître ce nouveau dossier :
 
