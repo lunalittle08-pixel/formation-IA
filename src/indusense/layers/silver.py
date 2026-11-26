@@ -13,6 +13,7 @@ Règles, dans l'ordre, pour chaque jeu de données :
    - règle en `on_fail: error` (défaut) : la ligne part en QUARANTAINE avec ses motifs ;
    - règle en `on_fail: warning` : la ligne reste ; une valeur non convertible devient NULL ;
 5. colonnes `privacy: drop` retirées ; colonnes absentes du contrat retirées (signalées) ;
+   colonnes `traceability: true` non reprises (ni contrôlées : elles restent au Bronze) ;
 6. chaque ligne garde l'empreinte du fichier et le numéro de sa ligne Bronze (lignage).
 
 Rien n'est corrigé ni deviné : une valeur est convertie, ou mise de côté avec son motif.
@@ -27,6 +28,7 @@ import pandas as pd
 from sqlalchemy import BigInteger, Text
 
 from indusense.config import InferenceSettings
+from indusense.contracts.model import traceability_columns
 from indusense.layers.anonymize import columns_to_pseudonymize, pseudonymize_series
 from indusense.layers.bronze import raw_column, source_columns
 from indusense.layers.settings import LayerSettings
@@ -116,6 +118,8 @@ def build_silver(dataset_id: str, bronze: pd.DataFrame, contract: dict, cfg: Lay
     specs = {c["name"]: c for c in contract.get("schema", {}).get("columns", [])}
     missing_cols = [c for c in specs if c not in df.columns]
     extra_cols = [c for c in df.columns if c not in specs]
+    traceability = [c for c in traceability_columns(contract) if c in df.columns]
+    df = df.drop(columns=traceability)             # traçabilité : Bronze seulement, ni contrôlée ni reprise
     dropped = [n for n, s in specs.items() if s.get("privacy") == "drop" and n in df.columns]
 
     reasons = pd.Series([[] for _ in range(len(df))], index=df.index, dtype=object)
@@ -180,7 +184,8 @@ def build_silver(dataset_id: str, bronze: pd.DataFrame, contract: dict, cfg: Lay
         "rows_silver": int(ok.sum()), "rows_rejected": int((~ok).sum()),
         "rejected_by_rule": report_rejects, "nulled_by_rule": report_nulled,
         "warnings_by_rule": report_warnings, "dropped_columns_privacy": dropped,
-        "dropped_columns_not_in_contract": extra_cols, "contract_columns_missing": missing_cols,
+        "dropped_columns_not_in_contract": extra_cols,
+        "dropped_columns_traceability": traceability, "contract_columns_missing": missing_cols,
         "contract_version": str(contract.get("contract", {}).get("version", "?")),
     }
     return SilverResult(dataset_id, valid.reset_index(drop=True), rejects.reset_index(drop=True),
@@ -199,6 +204,8 @@ def render_report(result: SilverResult, schema: str, rejects_table: str) -> str:
              (f"- Colonnes pseudonymisées (HMAC-SHA256 + sel) : "
               f"{', '.join(r['pseudonymized_columns']) or 'aucune'}"),
              f"- Colonnes retirées (privacy: drop) : {', '.join(r['dropped_columns_privacy']) or 'aucune'}",
+             (f"- Colonnes non reprises (traçabilité, restent au Bronze) : "
+              f"{', '.join(r['dropped_columns_traceability']) or 'aucune'}"),
              (f"- Colonnes retirées (absentes du contrat) : "
               f"{', '.join(r['dropped_columns_not_in_contract']) or 'aucune'}"),
              (f"- Colonnes du contrat absentes des données : "

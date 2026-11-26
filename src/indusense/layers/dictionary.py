@@ -6,20 +6,15 @@ confie au Silver. Aucune interprétation : des faits, et des décisions déjà �
 """
 from __future__ import annotations
 
+from indusense.contracts.model import traceability_columns
 from indusense.layers.bronze import BronzeFrame
 from indusense.layers.settings import LayerSettings
 from indusense.layers.sqltypes import CONVERTIBLE
 
 
-def transformations(bf: BronzeFrame, cfg: LayerSettings,
-                    excluded: dict[str, str] | None = None) -> list[dict]:
-    """Ce que le Bronze a fait à la donnée, colonne par colonne, en clair.
-
-    `excluded` : colonnes du schéma source non ingérées, avec la justification du contrat.
-    """
-    out = [{"code": "EXCL", "target": name, "source": [name],
-            "detail": f"colonne du schéma source sans valeur fournie, non ingérée : {reason}"}
-           for name, reason in (excluded or {}).items()]
+def transformations(bf: BronzeFrame, cfg: LayerSettings) -> list[dict]:
+    """Ce que le Bronze a fait à la donnée, colonne par colonne, en clair."""
+    out = []
     for c in bf.columns:
         if c["type"] in CONVERTIBLE:
             detail = (f"conversion au mieux vers {c['type']} ({c['sql_type']}) ; valeur d'origine "
@@ -42,6 +37,10 @@ def silver_operations(contract: dict, cfg: LayerSettings) -> list[dict]:
     """Opérations que le contrat confie au Silver (déclarées ici, exécutées là-bas)."""
     ops = [{"code": "DEL", "target": "lignes", "source": [cfg.col("row_hash")],
             "detail": "doublons stricts (même empreinte de ligne) : une seule ligne gardée"}]
+    ops += [{"code": "DROP", "target": name, "source": [name],
+             "detail": "colonne de traçabilité (contrat : traceability) : gardée au Bronze, "
+                       "non reprise au Silver"}
+            for name in traceability_columns(contract)]
     for col in contract.get("schema", {}).get("columns", []):
         if not col.get("pii"):
             continue
