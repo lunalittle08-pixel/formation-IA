@@ -186,7 +186,6 @@ schema:
   primary_key: [colonnes]
   allow_extra_columns: false
   columns: [ {name, type, ...} ]
-  excluded_columns: [ {name, reason, declared_type} ]   # optionnel, voir 6.2 bis
 quality: {min_rows, max_duplicate_rows}
 ```
 
@@ -209,33 +208,33 @@ nom de fichier sans extension pour un CSV, nom de table pour un SQL).
 | `audit` | — | exceptions de constats (§ 5) |
 | `description`, `unit`, `declared_type`, `observed` | non | documentation |
 | `pii`, `privacy` | non (privacy ∈ keep, drop, pseudonymize, aggregate, to_decide) | décision de minimisation |
+| `traceability` | non (booléen, incompatible avec `required`) | champ de traçabilité : gardé au Bronze, non repris au Silver (§ 6.2 bis) |
 
-### 6.2 bis Colonnes exclues (`schema.excluded_columns`)
+### 6.2 bis Champs de traçabilité (`traceability: true`)
 
-Colonne présente au schéma de la source (`CREATE TABLE` d'un dump SQL) mais qu'**aucune
-donnée n'alimente** : sa valeur viendrait d'un `DEFAULT` de la base au chargement, pas de la
-source. Elle n'est ni contrôlée ni ingérée au Bronze ; l'exclusion figure dans le dictionnaire
-de données (code `EXCL`) avec sa justification.
+Colonne de traçabilité de la source (ex. date de création ou de modification de
+l'enregistrement, indicateur d'activité), souvent alimentée par un `DEFAULT` de la base et
+absente des `INSERT` d'un dump SQL. Décision (formateur, 2026-11-26) : on la prend.
 
-- `reason` est obligatoire (toute exclusion se justifie) ;
-- une colonne ne peut pas être à la fois dans `columns` et dans `excluded_columns` ;
-- l'exclusion est **refusée** si la source fournit des valeurs pour la colonne (CSV, ou au
-  moins un `INSERT` qui la cite) : ce serait une perte de données ;
-- une colonne exclue absente de la source est une erreur (contrat à mettre à jour).
+- **Bronze** : la table est créée avec la colonne et la charge telle que la source la donne
+  (vide -> NULL si aucun `INSERT` ne la fournit ; la valeur du `DEFAULT` n'est pas inventée).
+  Une colonne de traçabilité non alimentée produit un **avertissement**, pas un refus ;
+- **Silver** : la colonne n'est ni contrôlée ni reprise (bilan Silver : « Colonnes non
+  reprises (traçabilité) » ; dictionnaire Bronze : opération `DROP` déclarée pour le Silver) ;
+- `traceability` est un booléen et une colonne de traçabilité ne peut pas être `required`.
 
 ### 6.3 Contrôle de structure (`indusense contract check`)
 
 `kind`, `contract.id`, `version`, `status` présents et valides ; colonnes non vides, sans
 doublon, type connu, clés connues ; `privacy` valide ; clé primaire parmi les colonnes ;
-exceptions `audit:` valides et justifiées ; `excluded_columns` justifiées et disjointes de
-`columns`.
+exceptions `audit:` valides et justifiées ; `traceability` booléen et non `required`.
 
 ### 6.4 Validation (`indusense validate`)
 
 | Règle | Niveau | Sévérité |
 |---|---|---|
 | `schema` — colonnes attendues absentes | jeu | error |
-| `schema` — colonnes non prévues (si `allow_extra_columns: false`, hors `excluded_columns`) | jeu | error |
+| `schema` — colonnes non prévues (si `allow_extra_columns: false`) | jeu | error |
 | `min_rows` | jeu | error |
 | `duplicates` — lignes identiques > `max_duplicate_rows` | jeu | error |
 | `primary_key` — doublons sur la clé | jeu | error |
