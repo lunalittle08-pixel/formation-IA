@@ -18,7 +18,7 @@ from pathlib import Path
 from sqlalchemy import Engine
 
 from indusense.config import Settings, all_sources
-from indusense.contracts.model import load_contracts
+from indusense.contracts.model import excluded_columns, load_contracts
 from indusense.io.files import sha256
 from indusense.layers.anonymize import undecided_pii_columns
 from indusense.layers.bronze import BatchMeta, build_bronze_frame
@@ -82,11 +82,16 @@ def _cast_ratio_limit(contract: dict, cfg: LayerSettings) -> float:
     return float((contract.get("source") or {}).get("max_cast_error_ratio", cfg.max_cast_error_ratio))
 
 
-def _types(ds, contract: dict, profile) -> dict[str, str]:
+def _types(columns, contract: dict, profile) -> dict[str, str]:
     """Type de chaque colonne : celui du contrat ; à défaut (colonne en plus autorisée), l'inféré."""
     declared = {c["name"]: c["type"] for c in contract["schema"]["columns"]}
     inferred = {c.name: c.type for c in profile.columns}
-    return {name: declared.get(name, inferred.get(name, "TEXT")) for name in ds.df.columns}
+    return {name: declared.get(name, inferred.get(name, "TEXT")) for name in columns}
+
+
+def ingested_frame(df, contract: dict):
+    """Colonnes ingérées : toutes sauf celles que le contrat exclut (schéma sans valeur source)."""
+    return df.drop(columns=[c for c in excluded_columns(contract) if c in df.columns])
 
 
 def load_one_bronze(engine: Engine, ds, contract: dict, profile, source_path: Path,
@@ -101,7 +106,8 @@ def load_one_bronze(engine: Engine, ds, contract: dict, profile, source_path: Pa
              "rows_with_cast_errors": 0, "status": "FAILED", "message": None, "started_at": started}
     meta = BatchMeta(entry["batch_id"], source, source_hash, started)
     declared_sql = {c["name"]: c.get("declared_type") for c in contract["schema"]["columns"]}
-    bf = build_bronze_frame(ds.df, _types(ds, contract, profile), meta, cfg,
+    raw = ingested_frame(ds.df, contract)
+    bf = build_bronze_frame(raw, _types(raw.columns, contract, profile), meta, cfg,
                             run.settings.inference.parse_rate_min, declared_sql)
     entry["rows_with_cast_errors"] = bf.rows_with_cast_errors
     limit = _cast_ratio_limit(contract, cfg)
@@ -130,7 +136,8 @@ def _write_dictionary(run: Run, dataset_id: str, bf, contract: dict, entry: dict
     batch = {k: (str(v) if k in ("batch_id", "started_at", "completed_at") else v)
              for k, v in entry.items()}
     d = {"dataset_id": dataset_id, "batch": batch, "max_cast_error_ratio": limit,
-         "columns": bf.columns, "transformations": transformations(bf, cfg),
+         "columns": bf.columns,
+         "transformations": transformations(bf, cfg, excluded_columns(contract)),
          "silver_operations": silver_operations(contract, cfg)}
     run.write(run.out_path("layers", f"bronze_{dataset_id}"), render_markdown(d))
     run.write(run.out_path("layers", f"bronze_{dataset_id}", ext="json"),

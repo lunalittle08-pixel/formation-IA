@@ -12,6 +12,7 @@ from dataclasses import dataclass, field
 import pandas as pd
 
 from indusense.config import Settings
+from indusense.contracts.model import excluded_columns
 from indusense.io.readers import Dataset
 from indusense.profiling.types import convert, missing_mask
 
@@ -107,7 +108,8 @@ def validate_dataset(ds: Dataset, contract: dict, settings: Settings) -> Validat
     # Dérive de schéma : colonnes absentes ou inattendues
     expected = [c["name"] for c in schema.get("columns", [])]
     missing_cols = [c for c in expected if c not in df.columns]
-    extra_cols = [c for c in df.columns if c not in expected]
+    excluded = excluded_columns(contract)          # schéma sans valeur source : exclusion décidée
+    extra_cols = [c for c in df.columns if c not in expected and c not in excluded]
     if missing_cols:
         violations.append(Violation("schema", ",".join(missing_cols), "error",
                                     "colonnes attendues absentes", len(missing_cols)))

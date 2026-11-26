@@ -11,9 +11,15 @@ from indusense.layers.settings import LayerSettings
 from indusense.layers.sqltypes import CONVERTIBLE
 
 
-def transformations(bf: BronzeFrame, cfg: LayerSettings) -> list[dict]:
-    """Ce que le Bronze a fait à la donnée, colonne par colonne, en clair."""
-    out = []
+def transformations(bf: BronzeFrame, cfg: LayerSettings,
+                    excluded: dict[str, str] | None = None) -> list[dict]:
+    """Ce que le Bronze a fait à la donnée, colonne par colonne, en clair.
+
+    `excluded` : colonnes du schéma source non ingérées, avec la justification du contrat.
+    """
+    out = [{"code": "EXCL", "target": name, "source": [name],
+            "detail": f"colonne du schéma source sans valeur fournie, non ingérée : {reason}"}
+           for name, reason in (excluded or {}).items()]
     for c in bf.columns:
         if c["type"] in CONVERTIBLE:
             detail = (f"conversion au mieux vers {c['type']} ({c['sql_type']}) ; valeur d'origine "

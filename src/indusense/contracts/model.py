@@ -21,6 +21,8 @@ PRIVACY_ACTIONS = {"keep", "drop", "pseudonymize", "aggregate", "to_decide"}
 COLUMN_KEYS = {"name", "type", "description", "unit", "required", "unique", "min", "max",
                "allowed_values", "pattern", "max_missing_pct", "references", "pii",
                "privacy", "on_fail", "declared_type", "observed", "audit"}
+# Colonne présente au schéma source mais sans valeur fournie par la source (ex. DEFAULT SQL).
+EXCLUDED_KEYS = {"name", "reason", "declared_type"}
 
 
 def load_contract(path: Path) -> dict:
@@ -89,7 +91,36 @@ def structure_errors(contract: dict, rule_ids: set[str] | None = None) -> list[s
     for pk in contract.get("schema", {}).get("primary_key", []) or []:
         if pk not in names:
             errs.append(f"clé primaire {pk} absente des colonnes")
+    errs += _excluded_errors(contract.get("schema", {}).get("excluded_columns"), names)
     return errs
+
+
+def _excluded_errors(excluded, names: list[str]) -> list[str]:
+    """Forme de `schema.excluded_columns` : liste de {name, reason}, sans recouvrement avec columns."""
+    if excluded is None:
+        return []
+    if not isinstance(excluded, list):
+        return ["schema.excluded_columns doit être une liste"]
+    errs = []
+    for item in excluded:
+        if not isinstance(item, dict) or not item.get("name"):
+            errs.append("schema.excluded_columns : chaque entrée doit avoir un name")
+            continue
+        if not str(item.get("reason") or "").strip():
+            errs.append(f"{item['name']} : exclusion sans reason (toute exclusion se justifie)")
+        if item["name"] in names:
+            errs.append(f"{item['name']} : à la fois dans columns et dans excluded_columns")
+        unknown = set(item) - EXCLUDED_KEYS
+        if unknown:
+            errs.append(f"{item['name']} : clés inconnues {sorted(unknown)}")
+    return errs
+
+
+def excluded_columns(contract: dict) -> dict[str, str]:
+    """Colonnes du schéma source volontairement non ingérées : {nom: justification}."""
+    return {c["name"]: c.get("reason", "")
+            for c in (contract.get("schema", {}).get("excluded_columns") or [])
+            if isinstance(c, dict) and c.get("name")}
 
 
 def declared_references(contracts: dict[str, dict]) -> list[tuple[str, str, str, str]]:
