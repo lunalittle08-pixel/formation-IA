@@ -82,11 +82,11 @@ def _cast_ratio_limit(contract: dict, cfg: LayerSettings) -> float:
     return float((contract.get("source") or {}).get("max_cast_error_ratio", cfg.max_cast_error_ratio))
 
 
-def _types(columns, contract: dict, profile) -> dict[str, str]:
+def _types(ds, contract: dict, profile) -> dict[str, str]:
     """Type de chaque colonne : celui du contrat ; à défaut (colonne en plus autorisée), l'inféré."""
     declared = {c["name"]: c["type"] for c in contract["schema"]["columns"]}
     inferred = {c.name: c.type for c in profile.columns}
-    return {name: declared.get(name, inferred.get(name, "TEXT")) for name in columns}
+    return {name: declared.get(name, inferred.get(name, "TEXT")) for name in ds.df.columns}
 
 
 def load_one_bronze(engine: Engine, ds, contract: dict, profile, source_path: Path,
@@ -101,7 +101,7 @@ def load_one_bronze(engine: Engine, ds, contract: dict, profile, source_path: Pa
              "rows_with_cast_errors": 0, "status": "FAILED", "message": None, "started_at": started}
     meta = BatchMeta(entry["batch_id"], source, source_hash, started)
     declared_sql = {c["name"]: c.get("declared_type") for c in contract["schema"]["columns"]}
-    bf = build_bronze_frame(ds.df, _types(ds.df.columns, contract, profile), meta, cfg,
+    bf = build_bronze_frame(ds.df, _types(ds, contract, profile), meta, cfg,
                             run.settings.inference.parse_rate_min, declared_sql)
     entry["rows_with_cast_errors"] = bf.rows_with_cast_errors
     limit = _cast_ratio_limit(contract, cfg)
