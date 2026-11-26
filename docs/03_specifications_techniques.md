@@ -186,6 +186,7 @@ schema:
   primary_key: [colonnes]
   allow_extra_columns: false
   columns: [ {name, type, ...} ]
+  excluded_columns: [ {name, reason, declared_type} ]   # optionnel, voir 6.2 bis
 quality: {min_rows, max_duplicate_rows}
 ```
 
@@ -209,18 +210,32 @@ nom de fichier sans extension pour un CSV, nom de table pour un SQL).
 | `description`, `unit`, `declared_type`, `observed` | non | documentation |
 | `pii`, `privacy` | non (privacy ∈ keep, drop, pseudonymize, aggregate, to_decide) | décision de minimisation |
 
+### 6.2 bis Colonnes exclues (`schema.excluded_columns`)
+
+Colonne présente au schéma de la source (`CREATE TABLE` d'un dump SQL) mais qu'**aucune
+donnée n'alimente** : sa valeur viendrait d'un `DEFAULT` de la base au chargement, pas de la
+source. Elle n'est ni contrôlée ni ingérée au Bronze ; l'exclusion figure dans le dictionnaire
+de données (code `EXCL`) avec sa justification.
+
+- `reason` est obligatoire (toute exclusion se justifie) ;
+- une colonne ne peut pas être à la fois dans `columns` et dans `excluded_columns` ;
+- l'exclusion est **refusée** si la source fournit des valeurs pour la colonne (CSV, ou au
+  moins un `INSERT` qui la cite) : ce serait une perte de données ;
+- une colonne exclue absente de la source est une erreur (contrat à mettre à jour).
+
 ### 6.3 Contrôle de structure (`indusense contract check`)
 
 `kind`, `contract.id`, `version`, `status` présents et valides ; colonnes non vides, sans
 doublon, type connu, clés connues ; `privacy` valide ; clé primaire parmi les colonnes ;
-exceptions `audit:` valides et justifiées.
+exceptions `audit:` valides et justifiées ; `excluded_columns` justifiées et disjointes de
+`columns`.
 
 ### 6.4 Validation (`indusense validate`)
 
 | Règle | Niveau | Sévérité |
 |---|---|---|
 | `schema` — colonnes attendues absentes | jeu | error |
-| `schema` — colonnes non prévues (si `allow_extra_columns: false`) | jeu | error |
+| `schema` — colonnes non prévues (si `allow_extra_columns: false`, hors `excluded_columns`) | jeu | error |
 | `min_rows` | jeu | error |
 | `duplicates` — lignes identiques > `max_duplicate_rows` | jeu | error |
 | `primary_key` — doublons sur la clé | jeu | error |

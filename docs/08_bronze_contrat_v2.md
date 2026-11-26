@@ -87,7 +87,10 @@ liste `inference.na_tokens`.
    - colonne déclarée mais absente du fichier, avec une suggestion
      (« Vouliez-vous dire 'duration_hours' ? ») ;
    - colonne du fichier absente du contrat (bloquant si `allow_extra_columns: false`) ;
-   - colonne d'un dump SQL présente au `CREATE TABLE` mais fournie par aucun `INSERT` ;
+   - colonne d'un dump SQL présente au `CREATE TABLE` mais fournie par aucun `INSERT`, sauf si
+     le contrat l'exclut explicitement (`schema.excluded_columns`, avec `reason`) : elle n'est
+     alors pas ingérée et le dictionnaire trace l'exclusion (code `EXCL`). Une exclusion d'une
+     colonne qui porte des valeurs de la source est refusée (perte de données) ;
    - aucune ligne à ingérer ;
    - noms en collision (`x` et `x_raw` déjà présents, nom réservé aux colonnes techniques) ou
      trop longs pour PostgreSQL.
@@ -193,6 +196,7 @@ d'habilitation.
 | Collisions de noms refusées | `test_collision_de_noms_refusee` |
 | Colonne absente nommée avec suggestion ; colonne en trop | `test_contrat_confronte_au_fichier_reel` |
 | Colonne SQL jamais alimentée ; source vide | `test_colonne_du_schema_sql_jamais_alimentee` |
+| Colonne SQL non alimentée exclue par le contrat ; exclusion refusée si la source a des valeurs | `test_colonne_sql_non_alimentee_exclue_par_le_contrat`, `test_exclusion_refusee_si_la_source_fournit_des_valeurs` |
 | Pseudonymisation au Silver, jamais en clair en quarantaine, lignage | `test_silver_typage_quarantaine_et_lignage` |
 | Bronze → Silver → Gold dans PostgreSQL ; NULL typé ⟺ source vide | `test_bout_en_bout_postgresql` |
 | Rejeu sans doublon ; registre | `test_rejeu_sans_doublon_et_registre` |
