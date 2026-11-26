@@ -44,6 +44,8 @@ def main(argv: list[str] | None = None) -> int:
     sub.add_parser("run", help="toutes les étapes")
     ld = sub.add_parser("load", help="chargement des couches bronze / silver / gold (PostgreSQL)")
     ld.add_argument("layer", choices=["bronze", "silver", "gold", "all"])
+    ld.add_argument("--rebuild", action="store_true",
+                    help="supprime et recrée les tables Bronze (changement de structure décidé)")
     c = sub.add_parser("contract", help="gestion des contrats")
     c.add_argument("action", choices=["draft", "check"])
     args = ap.parse_args(argv)
@@ -61,7 +63,7 @@ def main(argv: list[str] | None = None) -> int:
         from indusense.layers.stage import LAYERS, LayerError, run_layers
         layers = list(LAYERS) if args.layer == "all" else [args.layer]
         try:
-            run = run_layers(settings, layers, args.source)
+            run = run_layers(settings, layers, args.source, rebuild=args.rebuild)
         except LayerError as e:
             print(f"Erreur : {e}", file=sys.stderr)
             return 1

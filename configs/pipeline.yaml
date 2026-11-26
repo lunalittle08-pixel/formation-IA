@@ -77,20 +77,35 @@ layers:
   schemas: {bronze: bronze, silver: silver, gold: gold}
   chunk_size: 5000              # lignes envoyées par lot à PostgreSQL
 
-  # BRONZE : une table par jeu de données. Pour chaque colonne source `x` :
-  #   x (valeur brute, en texte) puis x<type_suffix> (type inféré), puis la colonne d'empreinte.
+  # BRONZE : une table par jeu de données ; on recopie, on ne corrige pas.
+  #   Pour chaque colonne source `x` : x<raw_suffix> (valeur d'origine, texte) puis x (valeur
+  #   convertie au mieux vers le type du contrat : NULL si vide ou non convertible).
+  #   Puis les colonnes techniques. Clé primaire : (source_hash, row_number) -> rejouer un
+  #   fichier déjà chargé n'insère rien (ON CONFLICT DO NOTHING).
   bronze:
-    type_suffix: _type
-    hash_column: hash
-    # Colonnes `pii: true` des contrats pseudonymisées (HMAC-SHA256 + sel) selon leur `privacy`.
-    # `drop` est inclus : le Bronze garde TOUTES les colonnes, une colonne à supprimer y est donc
-    # au minimum pseudonymisée ; elle est retirée au Silver.
-    # `to_decide` n'est PAS inclus : la colonne reste en clair et un avertissement est affiché.
-    pseudonymize_privacy: [pseudonymize, drop]
+    raw_suffix: _raw
+    technical_columns:            # rôle -> nom de colonne
+      batch_id: _batch_id         # lot d'ingestion (UUID)
+      source_file: _source_file   # fichier d'origine (chemin relatif au projet)
+      source_hash: _source_hash   # SHA-256 des octets du fichier
+      row_number: _row_number     # numéro de l'enregistrement dans la source (1 = premier)
+      ingested_at: _ingested_at   # horodatage du chargement (UTC)
+      row_hash: _row_hash         # SHA-256 des valeurs d'origine de la ligne (doublons stricts)
+      cast_errors: _cast_errors   # JSONB {colonne: motif} ; {} si tout est convertible
+    registry_table: ingestion_batches_log   # une ligne par tentative de chargement
+    # Part maximale de lignes avec au moins une erreur de conversion. Au-delà, le lot est
+    # annulé (rien n'est écrit) et l'échec est inscrit au registre. Un contrat peut fixer
+    # sa propre valeur dans `source.max_cast_error_ratio` (décision tracée dans le contrat).
+    max_cast_error_ratio: 0.0
 
   # SILVER : typé et contrôlé selon les contrats ; lignes invalides en quarantaine.
   silver:
-    lineage_column: bronze_hash   # empreinte de la ligne Bronze d'origine
+    # Colonnes `pii: true` des contrats pseudonymisées (HMAC-SHA256 + sel) selon leur `privacy`.
+    # Opération ANO : le Bronze garde la valeur d'origine, la protection se fait ici.
+    # `drop` est inclus : la colonne est pseudonymisée avant d'être retirée, pour qu'elle
+    # n'apparaisse jamais en clair dans la table de quarantaine.
+    # `to_decide` n'est PAS inclus : la colonne reste en clair et un avertissement est affiché.
+    pseudonymize_privacy: [pseudonymize, drop]
     rejects_suffix: _rejects      # silver.<jeu>_rejects : lignes en quarantaine
     reasons_column: reject_reasons
 

@@ -1,14 +1,19 @@
 """Couche Silver : du Bronze (texte) vers des données typées et contrôlées par le contrat.
 
+Le Silver lit les valeurs d'origine du Bronze (colonnes `_raw`), pas sa colonne typée :
+les règles de typage du Silver sont celles du contrat, pas le calcul « au mieux » du Bronze.
+
 Règles, dans l'ordre, pour chaque jeu de données :
-1. doublons exacts (même empreinte Bronze) : on garde la première ligne ;
+1. doublons stricts (même empreinte de ligne Bronze) : on garde la première ligne ;
+1 bis. pseudonymisation (HMAC-SHA256 + sel) des colonnes personnelles du contrat
+   (opération ANO : le Bronze les garde telles quelles, c'est ici qu'elles sont protégées) ;
 2. espaces en début et fin retirés ; jetons de valeur manquante (`na_tokens`) -> NULL ;
 3. conversion vers le type du CONTRAT (l'attendu), pas vers le type inféré ;
 4. contrôles ligne à ligne : obligatoire, type, format, liste de valeurs, bornes, unicité, clé ;
    - règle en `on_fail: error` (défaut) : la ligne part en QUARANTAINE avec ses motifs ;
    - règle en `on_fail: warning` : la ligne reste ; une valeur non convertible devient NULL ;
 5. colonnes `privacy: drop` retirées ; colonnes absentes du contrat retirées (signalées) ;
-6. chaque ligne garde l'empreinte de sa ligne Bronze d'origine (lignage).
+6. chaque ligne garde l'empreinte du fichier et le numéro de sa ligne Bronze (lignage).
 
 Rien n'est corrigé ni deviné : une valeur est convertie, ou mise de côté avec son motif.
 Les valeurs extrêmes mais dans les bornes du contrat sont conservées (c'est souvent le signal).
@@ -17,17 +22,16 @@ from __future__ import annotations
 
 import re
 from dataclasses import dataclass, field
-from datetime import datetime
 
 import pandas as pd
-from sqlalchemy import BigInteger, Boolean, DateTime, Double, Text, Time
+from sqlalchemy import BigInteger, Text
 
 from indusense.config import InferenceSettings
-from indusense.layers.bronze import source_columns
+from indusense.layers.anonymize import columns_to_pseudonymize, pseudonymize_series
+from indusense.layers.bronze import raw_column, source_columns
 from indusense.layers.settings import LayerSettings
+from indusense.layers.sqltypes import CONVERTIBLE, sql_type, to_python
 from indusense.profiling.types import convert, missing_mask
-
-CONVERTIBLE = {"INTEGER", "FLOAT", "DATETIME", "TIME", "BOOLEAN"}
 
 
 @dataclass
@@ -40,38 +44,6 @@ class SilverResult:
 
 
 # ------------------------------------------------------------------ conversions
-def to_python(values: pd.Series, col_type: str) -> pd.Series:
-    """Valeurs converties -> objets Python que PostgreSQL comprend (None si manquant)."""
-    def one(v):
-        if pd.isna(v):
-            return None
-        if col_type == "INTEGER":
-            return int(v)
-        if col_type == "FLOAT":
-            return float(v)
-        if col_type == "BOOLEAN":
-            return bool(v)
-        if col_type == "DATETIME":
-            return v.to_pydatetime()
-        if col_type == "TIME":
-            return (datetime.min + v).time()
-        return v
-    return values.map(one).astype(object)
-
-
-def sql_type(col_type: str, converted: pd.Series | None = None, declared: str | None = None):
-    """Type PostgreSQL d'un type logique.
-
-    DATETIME -> TIMESTAMPTZ si les valeurs portent un fuseau, ou si le type SQL déclaré dans
-    le contrat en prévoit un (utile quand la colonne est entièrement vide).
-    """
-    if col_type == "DATETIME":
-        tz = converted is not None and getattr(converted.dt, "tz", None) is not None
-        tz = tz or bool(declared and re.search(r"TZ|TIME ZONE", declared.upper()))
-        return DateTime(timezone=tz)
-    return {"INTEGER": BigInteger, "FLOAT": Double, "TIME": Time, "BOOLEAN": Boolean}.get(col_type, Text)
-
-
 def _bound(value, col_type: str, converted: pd.Series):
     """Borne du contrat convertie comme les données (une date sans fuseau est lue en UTC
     si les données ont un fuseau, pour comparer des grandeurs homogènes)."""
@@ -128,13 +100,18 @@ def column_checks(spec: dict, raw: pd.Series, protected: bool,
 
 # ------------------------------------------------------------------ construction
 def build_silver(dataset_id: str, bronze: pd.DataFrame, contract: dict, cfg: LayerSettings,
-                 inference: InferenceSettings) -> SilverResult:
+                 inference: InferenceSettings, salt: str) -> SilverResult:
     """Construit les lignes Silver, la quarantaine et le bilan à partir d'une table Bronze."""
     src_cols = source_columns(list(bronze.columns), cfg)
     n_in = len(bronze)
-    bronze = bronze.drop_duplicates(subset=[cfg.hash_column], keep="first")
-    df = bronze[src_cols].apply(lambda s: s.astype(str).str.strip())
-    lineage = bronze[cfg.hash_column]
+    bronze = bronze.drop_duplicates(subset=[cfg.col("row_hash")], keep="first")
+    df = pd.DataFrame({c: bronze[raw_column(c, cfg)].astype(str).str.strip() for c in src_cols},
+                      index=bronze.index)
+    lineage = bronze[cfg.lineage]
+    pseudonymized = [c for c in columns_to_pseudonymize(contract, cfg.pseudonymize_privacy)
+                     if c in df.columns]
+    for name in pseudonymized:
+        df[name] = pseudonymize_series(df[name], salt)
 
     specs = {c["name"]: c for c in contract.get("schema", {}).get("columns", [])}
     missing_cols = [c for c in specs if c not in df.columns]
@@ -188,14 +165,18 @@ def build_silver(dataset_id: str, bronze: pd.DataFrame, contract: dict, cfg: Lay
             ok = reasons.map(len) == 0
 
     valid = pd.DataFrame(typed, index=df.index)[ok]
-    valid[cfg.lineage_column] = lineage[ok]
-    types[cfg.lineage_column] = Text
     rejects = df[~ok].copy()
-    rejects[cfg.lineage_column] = lineage[~ok]
+    for col in cfg.lineage:
+        valid[col], rejects[col] = lineage.loc[ok, col], lineage.loc[~ok, col]
+    types[cfg.col("source_hash")] = Text
+    types[cfg.col("row_number")] = BigInteger
+    if len(valid):
+        valid[cfg.col("row_number")] = valid[cfg.col("row_number")].astype(int)
     rejects[cfg.reasons_column] = reasons[~ok].map("; ".join)
 
     report = {
         "rows_bronze": n_in, "exact_duplicates_removed": n_in - len(df),
+        "pseudonymized_columns": pseudonymized,
         "rows_silver": int(ok.sum()), "rows_rejected": int((~ok).sum()),
         "rejected_by_rule": report_rejects, "nulled_by_rule": report_nulled,
         "warnings_by_rule": report_warnings, "dropped_columns_privacy": dropped,
@@ -215,11 +196,13 @@ def render_report(result: SilverResult, schema: str, rejects_table: str) -> str:
              f"- Doublons exacts retirés : {r['exact_duplicates_removed']}",
              f"- Lignes Silver (`{schema}.{result.dataset_id}`) : {r['rows_silver']}",
              f"- Lignes en quarantaine (`{schema}.{rejects_table}`) : {r['rows_rejected']}",
+             (f"- Colonnes pseudonymisées (HMAC-SHA256 + sel) : "
+              f"{', '.join(r['pseudonymized_columns']) or 'aucune'}"),
              f"- Colonnes retirées (privacy: drop) : {', '.join(r['dropped_columns_privacy']) or 'aucune'}",
-             f"- Colonnes retirées (absentes du contrat) : "
-             f"{', '.join(r['dropped_columns_not_in_contract']) or 'aucune'}",
-             f"- Colonnes du contrat absentes des données : "
-             f"{', '.join(r['contract_columns_missing']) or 'aucune'}", ""]
+             (f"- Colonnes retirées (absentes du contrat) : "
+              f"{', '.join(r['dropped_columns_not_in_contract']) or 'aucune'}"),
+             (f"- Colonnes du contrat absentes des données : "
+              f"{', '.join(r['contract_columns_missing']) or 'aucune'}"), ""]
     for title, key in (("Lignes mises en quarantaine, par règle (on_fail: error)", "rejected_by_rule"),
                        ("Valeurs non convertibles mises à NULL (on_fail: warning)", "nulled_by_rule"),
                        ("Avertissements, valeurs conservées (on_fail: warning)", "warnings_by_rule")):
