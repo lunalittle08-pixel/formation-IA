@@ -15,6 +15,7 @@ s'accompagne de la mise à jour du document concerné, dans la même branche.
 | [Mode opératoire](05_mode_operatoire.md) | utilisateur du pipeline | procédures pas à pas (ajouter une source, traiter un échec, versionner…) |
 | [Dossier d'exploitation](06_dossier_exploitation.md) | personne qui installe et fait tourner le pipeline | environnement, installation, exécution, codes retour, journaux, sauvegarde, incidents |
 | [Guide des couches Bronze / Silver / Gold](07_guide_couches_bronze_silver_gold.md) | apprenant, développeur | PostgreSQL sous Docker, `.env`, pseudonymisation, empreinte de ligne, typage et quarantaine Silver, requêtes Gold, commande `indusense load` |
+| [Bronze v2 : consignes du formateur](08_bronze_contrat_v2.md) | apprenant, développeur, évaluateur | `x_raw` + `x` typé, `_cast_errors`, colonnes techniques, rejeu sans doublon, registre des lots, contrôles contrat/fichier, dictionnaire de données, pseudonymisation au Silver (remplace la partie Bronze du guide 07) |
 
 Documents complémentaires déjà présents :
 

@@ -1,5 +1,12 @@
 # Guide pas à pas : charger les couches Bronze, Silver et Gold dans PostgreSQL
 
+> **Mise à jour du 26/11/2026 : Bronze v2.** Le Bronze a été réaligné sur les consignes du
+> formateur : colonnes `x_raw` + `x` typé, colonnes techniques, rejeu sans doublon, registre des
+> lots, pseudonymisation déplacée au **Silver**. Les parties de ce guide qui décrivent le Bronze
+> (1.4, 2.2, 6.3, partie Bronze de 6.7, 9.1, 9.3) sont **remplacées** par
+> [08_bronze_contrat_v2.md](08_bronze_contrat_v2.md). Les questions 2 et 3 de la partie 12 sont
+> tranchées par ces consignes.
+
 **Projet InduSense, Sprint 1.** Le pipeline charge les données dans les trois couches de
 l'architecture médaillon, chacune dans son schéma PostgreSQL :
 
