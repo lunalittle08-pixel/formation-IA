@@ -3,7 +3,7 @@ apiVersion: indusense/v1
 kind: DataContract
 contract:
   id: machine
-  version: 1.0.0
+  version: 2.1.0
   status: active
   owner: "TODO: méthodes / maintenance"
   description: Référentiel des machines du parc (une ligne par machine).
@@ -29,10 +29,15 @@ schema:
     - {name: location, type: CATEGORY, declared_type: VARCHAR(16), description: Atelier}
     - {name: criticality, type: CATEGORY, declared_type: VARCHAR(8),
        description: Criticité de la machine pour la production}   # TODO : fixer allowed_values
-    - {name: is_active, type: BOOLEAN, declared_type: BOOLEAN, description: Machine en service}
-    - {name: created_at, type: DATETIME, declared_type: TIMESTAMPTZ, description: Création de l'enregistrement}
-    - {name: updated_at, type: DATETIME, declared_type: TIMESTAMPTZ, description: Dernière modification,
-       on_fail: warning}
+    # Champs de traçabilité (décision avec le formateur, 2026-11-26) : aucun INSERT de la source
+    # ne les fournit (DEFAULT de la base). Créés et chargés au Bronze tels quels (vides),
+    # non repris au Silver (ni contrôlés ni propagés). Jamais obligatoires.
+    - {name: is_active, type: BOOLEAN, declared_type: BOOLEAN, traceability: true,
+       description: Machine en service (traçabilité)}
+    - {name: created_at, type: DATETIME, declared_type: TIMESTAMPTZ, traceability: true,
+       description: Création de l'enregistrement (traçabilité)}
+    - {name: updated_at, type: DATETIME, declared_type: TIMESTAMPTZ, traceability: true,
+       description: Dernière modification (traçabilité)}
 quality:
   min_rows: 1
   max_duplicate_rows: 0

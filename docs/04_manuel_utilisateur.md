@@ -144,6 +144,12 @@ relance le pipeline et sert à **interpréter** : pour chaque constat 🔴/🟠,
 Ouvrir le notebook dans VS Code ou Jupyter, avec le noyau de l'environnement du projet
 (`.venv`).
 
+Le notebook [notebooks/02_bronze_journal_de_bord.ipynb](../notebooks/02_bronze_journal_de_bord.ipynb)
+retrace l'intégration de la couche Bronze, étape par étape, et vérifie les garanties en base.
+Il demande PostgreSQL démarré (`docker compose up -d db admin`) et un `.env`. Sa section 9
+relance `load bronze` (rejeu attendu : 0 ligne insérée). Ses sorties ne montrent qu'un jeu sans
+colonne personnelle et des comptages, jamais de valeur nominative (dépôt public).
+
 ## 6. Questions fréquentes
 
 **« Non conformes : … » s'affiche. Est-ce une erreur ?**

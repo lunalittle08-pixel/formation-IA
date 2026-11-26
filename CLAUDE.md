@@ -23,6 +23,8 @@ maintenance prédictive (pannes machines). Sprint 1 : fiabiliser les données (C
 uv sync                            # installe les dépendances
 uv run indusense run               # identity + audit + draft + validate
 uv run indusense contract check    # structure des contrats
+uv run indusense load all          # bronze -> silver -> gold dans PostgreSQL (docker compose + .env)
+uv run indusense load bronze --rebuild   # recrée les tables Bronze (changement de structure décidé)
 uv run pytest                      # tests
 ```
 
@@ -37,6 +39,11 @@ uv run pytest                      # tests
 - Les seuils de la config et les règles des contrats ne s'assouplissent pas pour faire passer
   des données : toute modification est justifiée (commentaire et message de commit).
 - Pas de nettoyage dans l'audit ni dans le Bronze : on décrit, on trace, on décide.
+- Bronze (consignes du formateur, `docs/08_bronze_contrat_v2.md`) : `x_raw` intact + `x` typé au
+  mieux + `_cast_errors` ; colonnes techniques ; clé primaire `(_source_hash, _row_number)` ;
+  registre des lots. Aucune transformation : la pseudonymisation (ANO) se fait au Silver.
+- Silver : guide 02 du formateur (ordre fusion → dédoublonnage → anonymisation → normalisation →
+  imputation → marquage des aberrants). Les aberrants sont marqués, jamais supprimés ni bornés.
 - Données personnelles (noms, badges, texte libre) : signaler et proposer une décision de minimisation.
 - Code : fonctions courtes à responsabilité unique, docstrings en français, test pytest pour toute
   nouvelle règle.

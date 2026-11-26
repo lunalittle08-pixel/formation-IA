@@ -6,6 +6,8 @@
     uv run indusense contract check           # structure des contrats (CI)
     uv run indusense validate                 # données vs contrats (code retour 1 si erreur)
     uv run indusense run                      # toutes les étapes
+    uv run indusense load bronze|silver|gold  # chargement d'une couche dans PostgreSQL
+    uv run indusense load all                 # les trois couches, dans l'ordre
     Options : --config configs/pipeline.yaml  --source <nom_fichier_sans_extension>
 """
 from __future__ import annotations
@@ -40,6 +42,10 @@ def main(argv: list[str] | None = None) -> int:
     sub.add_parser("audit", help="audit qualité et cartographie")
     sub.add_parser("validate", help="contrôle des données contre les contrats")
     sub.add_parser("run", help="toutes les étapes")
+    ld = sub.add_parser("load", help="chargement des couches bronze / silver / gold (PostgreSQL)")
+    ld.add_argument("layer", choices=["bronze", "silver", "gold", "all"])
+    ld.add_argument("--rebuild", action="store_true",
+                    help="supprime et recrée les tables Bronze (changement de structure décidé)")
     c = sub.add_parser("contract", help="gestion des contrats")
     c.add_argument("action", choices=["draft", "check"])
     args = ap.parse_args(argv)
@@ -50,6 +56,26 @@ def main(argv: list[str] | None = None) -> int:
 
     if args.cmd == "contract" and args.action == "check":
         return _contract_check(settings)
+    if args.cmd == "load":
+        # Import local : les autres commandes n'ont besoin ni de la base ni du .env
+        from sqlalchemy.exc import OperationalError
+
+        from indusense.layers.stage import LAYERS, LayerError, run_layers
+        layers = list(LAYERS) if args.layer == "all" else [args.layer]
+        try:
+            run = run_layers(settings, layers, args.source, rebuild=args.rebuild)
+        except LayerError as e:
+            print(f"Erreur : {e}", file=sys.stderr)
+            return 1
+        except OperationalError as e:
+            print("Erreur : connexion à PostgreSQL impossible. La base est-elle démarrée "
+                  "(docker compose ps) ? DB_PORT et DB_PASSWORD du .env sont-ils corrects ?\n"
+                  f"Détail : {e.orig}", file=sys.stderr)
+            return 1
+        if run.summary["refused"]:
+            print(f"Refusés : {', '.join(run.summary['refused'])}", file=sys.stderr)
+            return 1
+        return 0
     stages = {"identity": ["identity"], "audit": ["audit"], "validate": ["validate"],
               "run": list(STAGES), "contract": ["draft"]}[args.cmd]
     run = run_pipeline(settings, stages, args.source)

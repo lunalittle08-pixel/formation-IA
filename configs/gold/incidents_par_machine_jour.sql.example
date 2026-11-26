@@ -1,0 +1,20 @@
+-- MODÈLE (non exécuté : extension .example). Pour l'activer, copier ce fichier en
+-- configs/gold/incidents_par_machine_jour.sql : il deviendra la table gold.incidents_par_machine_jour.
+--
+-- Règles d'un fichier Gold : une seule requête SELECT (ou WITH), qui lit le schéma silver ;
+-- le nom du fichier (minuscules, chiffres, _) donne le nom de la table.
+--
+-- Exemple : nombre d'incidents et gravité maximale par machine et par jour, avec les
+-- caractéristiques de la machine. La définition de la cible du modèle (fenêtre de prédiction,
+-- gravité retenue comme « panne »...) reste à décider avec le métier.
+SELECT
+    i.machine_id,
+    i.date::date              AS jour,
+    m.production_line,
+    m.criticality,
+    count(*)                  AS nb_incidents,
+    max(i.severity)           AS gravite_max
+FROM silver.releves_incidents AS i
+LEFT JOIN silver.machine AS m ON m.machine_code = i.machine_id
+GROUP BY i.machine_id, i.date::date, m.production_line, m.criticality
+ORDER BY i.machine_id, jour

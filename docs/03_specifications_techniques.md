@@ -208,12 +208,26 @@ nom de fichier sans extension pour un CSV, nom de table pour un SQL).
 | `audit` | — | exceptions de constats (§ 5) |
 | `description`, `unit`, `declared_type`, `observed` | non | documentation |
 | `pii`, `privacy` | non (privacy ∈ keep, drop, pseudonymize, aggregate, to_decide) | décision de minimisation |
+| `traceability` | non (booléen, incompatible avec `required`) | champ de traçabilité : gardé au Bronze, non repris au Silver (§ 6.2 bis) |
+
+### 6.2 bis Champs de traçabilité (`traceability: true`)
+
+Colonne de traçabilité de la source (ex. date de création ou de modification de
+l'enregistrement, indicateur d'activité), souvent alimentée par un `DEFAULT` de la base et
+absente des `INSERT` d'un dump SQL. Décision (formateur, 2026-11-26) : on la prend.
+
+- **Bronze** : la table est créée avec la colonne et la charge telle que la source la donne
+  (vide -> NULL si aucun `INSERT` ne la fournit ; la valeur du `DEFAULT` n'est pas inventée).
+  Une colonne de traçabilité non alimentée produit un **avertissement**, pas un refus ;
+- **Silver** : la colonne n'est ni contrôlée ni reprise (bilan Silver : « Colonnes non
+  reprises (traçabilité) » ; dictionnaire Bronze : opération `DROP` déclarée pour le Silver) ;
+- `traceability` est un booléen et une colonne de traçabilité ne peut pas être `required`.
 
 ### 6.3 Contrôle de structure (`indusense contract check`)
 
 `kind`, `contract.id`, `version`, `status` présents et valides ; colonnes non vides, sans
 doublon, type connu, clés connues ; `privacy` valide ; clé primaire parmi les colonnes ;
-exceptions `audit:` valides et justifiées.
+exceptions `audit:` valides et justifiées ; `traceability` booléen et non `required`.
 
 ### 6.4 Validation (`indusense validate`)
 

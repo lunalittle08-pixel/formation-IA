@@ -20,7 +20,7 @@ STATUSES = {"draft", "active", "deprecated"}
 PRIVACY_ACTIONS = {"keep", "drop", "pseudonymize", "aggregate", "to_decide"}
 COLUMN_KEYS = {"name", "type", "description", "unit", "required", "unique", "min", "max",
                "allowed_values", "pattern", "max_missing_pct", "references", "pii",
-               "privacy", "on_fail", "declared_type", "observed", "audit"}
+               "privacy", "on_fail", "declared_type", "observed", "audit", "traceability"}
 
 
 def load_contract(path: Path) -> dict:
@@ -86,10 +86,28 @@ def structure_errors(contract: dict, rule_ids: set[str] | None = None) -> list[s
             errs.append(f"{c.get('name')} : privacy invalide {c['privacy']}")
         if "audit" in c:
             errs += column_override_errors(c.get("name"), c["audit"], rule_ids or set())
+        errs += _traceability_errors(c)
     for pk in contract.get("schema", {}).get("primary_key", []) or []:
         if pk not in names:
             errs.append(f"clé primaire {pk} absente des colonnes")
     return errs
+
+
+def _traceability_errors(col: dict) -> list[str]:
+    """`traceability` : booléen ; une colonne de traçabilité n'est ni obligatoire ni contrôlée."""
+    if "traceability" not in col:
+        return []
+    if not isinstance(col["traceability"], bool):
+        return [f"{col.get('name')} : traceability doit valoir true ou false"]
+    if col["traceability"] and col.get("required"):
+        return [f"{col.get('name')} : une colonne de traçabilité ne peut pas être required"]
+    return []
+
+
+def traceability_columns(contract: dict) -> list[str]:
+    """Colonnes de traçabilité : gardées au Bronze (même sans valeur source), non reprises au Silver."""
+    return [c["name"] for c in contract.get("schema", {}).get("columns", [])
+            if c.get("traceability") is True]
 
 
 def declared_references(contracts: dict[str, dict]) -> list[tuple[str, str, str, str]]:

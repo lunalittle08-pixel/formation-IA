@@ -18,11 +18,14 @@ une nouvelle source se traite en déposant le fichier et en ajoutant son contrat
 | [Manuel utilisateur](docs/04_manuel_utilisateur.md) | commandes, lecture des rapports, questions fréquentes |
 | [Mode opératoire](docs/05_mode_operatoire.md) | procédures pas à pas |
 | [Dossier d'exploitation](docs/06_dossier_exploitation.md) | installation, exécution, codes retour, sauvegarde, incidents |
+| [Guide des couches Bronze / Silver / Gold](docs/07_guide_couches_bronze_silver_gold.md) | PostgreSQL, `.env`, pseudonymisation, empreinte, Silver, Gold, commande `load` |
+| [Bronze v2 : consignes du formateur](docs/08_bronze_contrat_v2.md) | `x_raw` + typé, colonnes techniques, rejeu sans doublon, registre, dictionnaire de données |
 
 ## Démarrage
 
 ```bash
-uv sync                               # dépendances (pandas, pyyaml, sqlglot) + outils de dev
+uv sync                               # dépendances (pandas, pyyaml, sqlglot, sqlalchemy, psycopg, pydantic-settings) + outils de dev
+docker compose up -d db admin         # PostgreSQL + pgAdmin (voir docs/07_guide_couches_bronze_silver_gold.md)
 uv run indusense run                  # toutes les étapes
 uv run pytest                         # tests
 ```
@@ -35,6 +38,7 @@ uv run pytest                         # tests
 | `uv run indusense contract check` | Structure des contrats | console (code retour 1 si invalide) |
 | `uv run indusense validate` | Données vs contrats (attendu) | `validations/AAAAMMJJ/validation_*.md/.json` |
 | `uv run indusense run` | Tout | + `runs/<run_id>/manifest.json` |
+| `uv run indusense load bronze\|silver\|gold\|all` | Chargement des couches médaillon dans PostgreSQL (à part : nécessite la base et le `.env`). Rejouer n'insère rien ; `--rebuild` recrée les tables Bronze | tables `bronze.*` (+ `bronze.ingestion_batches_log`), `silver.*` (+ `*_rejects`), `gold.*` ; dictionnaires `layers/AAAAMMJJ/bronze_<jeu>_HHMMSS.md`, bilans `silver_<jeu>_HHMMSS.md` |
 
 Option `--source <id>` (répétable) pour ne traiter qu'une partie des sources. L'identifiant
 d'une source est le nom de son fichier sans extension (`telemetry.csv` → `telemetry`,
@@ -114,6 +118,7 @@ indusense/
 ├── configs/
 │   ├── pipeline.yaml                   # chemins, découverte des sources, inférence, audit
 │   ├── findings.yaml                   # spécification métier des constats (facultative)
+│   ├── gold/                           # requêtes SELECT du Gold (<nom>.sql -> gold.<nom>)
 │   └── contracts/                      # contrats de données = ce qu'on ATTEND
 │       ├── releves_incidents.yaml
 │       ├── telemetry.yaml
@@ -148,6 +153,14 @@ indusense/
 │   │   ├── model.py                    # format YAML, contrôle de structure
 │   │   ├── draft.py                    # brouillon de contrat depuis le profil observé
 │   │   └── validate.py                 # contrôle des données contre le contrat
+│   ├── layers/                         # couches médaillon dans PostgreSQL (`indusense load`)
+│   │   ├── settings.py                 #   section `layers:` de la config
+│   │   ├── anonymize.py                #   pseudonymisation HMAC-SHA256 + sel
+│   │   ├── bronze.py                   #   texte brut + types inférés + empreinte de ligne
+│   │   ├── silver.py                   #   typage et contrôles du contrat, quarantaine
+│   │   ├── gold.py                     #   requêtes configs/gold/*.sql
+│   │   ├── database.py                 #   .env, connexion, chargement des tables
+│   │   └── stage.py                    #   orchestration bronze -> silver -> gold
 │   ├── reporting/markdown.py           # rendu des cartes, audits, validations
 │   ├── pipeline.py                     # orchestration des étapes + manifeste
 │   └── cli.py                          # commande `indusense`

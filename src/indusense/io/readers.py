@@ -25,6 +25,9 @@ class Dataset:
     df: pd.DataFrame                 # valeurs brutes (str)
     table: str | None = None         # nom de table (sources SQL)
     declared_types: dict[str, str] | None = None   # types SQL déclarés
+    # Colonnes réellement alimentées par les données (SQL : présentes dans au moins un INSERT).
+    # None pour un CSV : toute colonne de l'en-tête est fournie par le fichier.
+    provided_columns: list[str] | None = None
 
 
 @dataclass
@@ -77,6 +80,7 @@ def read_sql_script(path: Path, encoding: str, dialect: str | None) -> list[Data
     """Un Dataset par table : schéma des CREATE TABLE + lignes des INSERT."""
     declared: dict[str, dict[str, str]] = {}
     rows: dict[str, list[dict]] = {}
+    provided: dict[str, set[str]] = {}
     for stmt in sqlglot.parse(path.read_text(encoding=encoding), read=dialect):
         if isinstance(stmt, exp.Create) and stmt.kind == "TABLE" and isinstance(stmt.this, exp.Schema):
             schema = stmt.this
@@ -93,14 +97,17 @@ def read_sql_script(path: Path, encoding: str, dialect: str | None) -> list[Data
             values = stmt.expression
             if isinstance(values, exp.Values):
                 for tup in values.expressions:
-                    rows.setdefault(table, []).append(
-                        dict(zip(cols, (_literal_to_str(v) for v in tup.expressions))))
+                    row = dict(zip(cols, (_literal_to_str(v) for v in tup.expressions)))
+                    rows.setdefault(table, []).append(row)
+                    provided.setdefault(table, set()).update(row)
     datasets = []
     for table in sorted(declared.keys() | rows.keys()):
         columns = list(declared.get(table, {})) or None
         df = pd.DataFrame(rows.get(table, []), columns=columns, dtype=str).fillna("")
         datasets.append(Dataset(id=table, df=df, table=table,
-                                declared_types=declared.get(table)))
+                                declared_types=declared.get(table),
+                                provided_columns=[c for c in df.columns
+                                                  if c in provided.get(table, set())]))
     return datasets
 
 

@@ -14,6 +14,8 @@ s'accompagne de la mise à jour du document concerné, dans la même branche.
 | [Manuel utilisateur](04_manuel_utilisateur.md) | utilisateur du pipeline | commandes, lecture des rapports, questions fréquentes |
 | [Mode opératoire](05_mode_operatoire.md) | utilisateur du pipeline | procédures pas à pas (ajouter une source, traiter un échec, versionner…) |
 | [Dossier d'exploitation](06_dossier_exploitation.md) | personne qui installe et fait tourner le pipeline | environnement, installation, exécution, codes retour, journaux, sauvegarde, incidents |
+| [Guide des couches Bronze / Silver / Gold](07_guide_couches_bronze_silver_gold.md) | apprenant, développeur | PostgreSQL sous Docker, `.env`, pseudonymisation, empreinte de ligne, typage et quarantaine Silver, requêtes Gold, commande `indusense load` |
+| [Bronze v2 : consignes du formateur](08_bronze_contrat_v2.md) | apprenant, développeur, évaluateur | `x_raw` + `x` typé, `_cast_errors`, colonnes techniques, rejeu sans doublon, registre des lots, contrôles contrat/fichier, dictionnaire de données, pseudonymisation au Silver (remplace la partie Bronze du guide 07) |
 
 Documents complémentaires déjà présents :
 
@@ -22,6 +24,9 @@ Documents complémentaires déjà présents :
 - [docs/datasheets/TEMPLATE.md](datasheets/TEMPLATE.md) — modèle de datasheet d'un jeu de données ;
 - [notebooks/01_audit_journal_de_bord.ipynb](../notebooks/01_audit_journal_de_bord.ipynb) —
   journal de bord exécutable : interprétation des constats et décisions ;
+- [notebooks/02_bronze_journal_de_bord.ipynb](../notebooks/02_bronze_journal_de_bord.ipynb) —
+  intégration du Bronze pas à pas (méthode en 8 étapes, colonnes techniques, librairies,
+  invariants vérifiés en base, RGPD, écarts avec les consignes du formateur) ;
 - [README.md](../README.md) du projet — démarrage rapide.
 
 ## Ordre de lecture conseillé

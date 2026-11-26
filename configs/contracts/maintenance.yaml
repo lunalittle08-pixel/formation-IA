@@ -3,7 +3,7 @@ apiVersion: indusense/v1
 kind: DataContract
 contract:
   id: maintenance
-  version: 0.1.0
+  version: 0.3.0
   status: draft
   owner: "TODO: maintenance"
   description: Interventions préventives et correctives réalisées sur les machines.
@@ -33,9 +33,13 @@ schema:
        description: "Incident à l'origine d'une intervention corrective (vide si préventive)"}
     - {name: duration_hours, type: FLOAT, min: 0, max: 72, unit: h, declared_type: "DECIMAL(6, 2)",
        description: Durée de l'intervention}   # TODO valider la borne max
-    - {name: created_at, type: DATETIME, declared_type: TIMESTAMPTZ, description: Création de l'enregistrement}
-    - {name: updated_at, type: DATETIME, declared_type: TIMESTAMPTZ, on_fail: warning,
-       description: Dernière modification}
+    # Champs de traçabilité (décision avec le formateur, 2026-11-26) : aucun INSERT de la source
+    # ne les fournit (DEFAULT de la base). Créés et chargés au Bronze tels quels (vides),
+    # non repris au Silver (ni contrôlés ni propagés). Jamais obligatoires.
+    - {name: created_at, type: DATETIME, declared_type: TIMESTAMPTZ, traceability: true,
+       description: Création de l'enregistrement (traçabilité)}
+    - {name: updated_at, type: DATETIME, declared_type: TIMESTAMPTZ, traceability: true,
+       description: Dernière modification (traçabilité)}
 quality:
   min_rows: 1
   max_duplicate_rows: 0
