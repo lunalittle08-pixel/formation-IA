@@ -1,0 +1,120 @@
+{
+  "run_id": "20261126_161600",
+  "started_at": "2026-11-26T16:16:00",
+  "finished_at": "2026-11-26T16:17:34",
+  "stages": [
+    "load:bronze",
+    "load:silver",
+    "load:gold"
+  ],
+  "config": {
+    "path": "configs/pipeline.yaml",
+    "sha256": "2bd8b346acfa8473e2eb37b035347e257553c7b0db639ea8f53c9712b6c11182"
+  },
+  "findings_spec": {
+    "path": "configs/findings.yaml",
+    "sha256": "45b7414ee62fe15d71b55ce199567791239ab42f13c2fe08ea8b2873599b7266"
+  },
+  "versions": {
+    "indusense": "0.1.0",
+    "python": "3.15.0rc2",
+    "pandas": "3.1.1"
+  },
+  "inputs": [
+    {
+      "path": "datas/machine.sql",
+      "sha256": "9eb877ae806515e852df46dd9f97f31aabfa8420a8f07dc50a5be4cefced8fcb",
+      "size_bytes": 22947,
+      "charset": "UTF-8",
+      "datasets": {
+        "machine": [
+          15,
+          11
+        ],
+        "maintenance": [
+          115,
+          11
+        ]
+      }
+    },
+    {
+      "path": "datas/releves_incidents.csv",
+      "sha256": "be7204b3320a39fa2c58f4be10bc5013fd74ab63aa4a5a5399fb0d151846110a",
+      "size_bytes": 137869,
+      "charset": "UTF-8",
+      "datasets": {
+        "releves_incidents": [
+          1245,
+          18
+        ]
+      }
+    },
+    {
+      "path": "datas/telemetry.csv",
+      "sha256": "68ec8dd09b691e6810d26626d17191414482552112e31cac04f110f3bb58fb6c",
+      "size_bytes": 8323471,
+      "charset": "ASCII (compatible UTF-8)",
+      "datasets": {
+        "telemetry": [
+          135626,
+          7
+        ]
+      }
+    }
+  ],
+  "outputs": [
+    "artifacts/ingestion/layers/20261126/bronze_releves_incidents_161600.md",
+    "artifacts/ingestion/layers/20261126/bronze_releves_incidents_161600.json",
+    "postgresql:bronze.releves_incidents",
+    "artifacts/ingestion/layers/20261126/bronze_telemetry_161600.md",
+    "artifacts/ingestion/layers/20261126/bronze_telemetry_161600.json",
+    "postgresql:bronze.telemetry",
+    "artifacts/ingestion/layers/20261126/silver_releves_incidents_161600.md",
+    "artifacts/ingestion/layers/20261126/silver_releves_incidents_161600.json",
+    "postgresql:silver.releves_incidents",
+    "postgresql:silver.releves_incidents_rejects",
+    "artifacts/ingestion/layers/20261126/silver_telemetry_161600.md",
+    "artifacts/ingestion/layers/20261126/silver_telemetry_161600.json",
+    "postgresql:silver.telemetry",
+    "postgresql:silver.telemetry_rejects"
+  ],
+  "summary": {
+    "refused": [
+      "bronze.machine",
+      "bronze.maintenance"
+    ],
+    "bronze": {
+      "releves_incidents": {
+        "status": "SUCCESS",
+        "records_read": 1245,
+        "records_inserted": 0,
+        "records_already_present": 1245,
+        "rows_with_cast_errors": 0,
+        "batch_id": "4054f98b-3ffc-4d1b-8274-02367f63522b"
+      },
+      "telemetry": {
+        "status": "SUCCESS",
+        "records_read": 135626,
+        "records_inserted": 0,
+        "records_already_present": 135626,
+        "rows_with_cast_errors": 0,
+        "batch_id": "e12e5d7c-265c-439e-bcb6-d729afa4aea7"
+      }
+    },
+    "silver": {
+      "releves_incidents": {
+        "rows_bronze": 1245,
+        "rows_silver": 1245,
+        "rows_rejected": 0,
+        "exact_duplicates_removed": 0
+      },
+      "telemetry": {
+        "rows_bronze": 135626,
+        "rows_silver": 131034,
+        "rows_rejected": 4592,
+        "exact_duplicates_removed": 0
+      }
+    },
+    "gold": {}
+  }
+}
