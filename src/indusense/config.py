@@ -105,7 +105,8 @@ def load_settings(config_path: Path | str = DEFAULT_CONFIG) -> Settings:
         data_dir=_resolve(root, paths["data_dir"]),
         contracts_dir=_resolve(root, paths["contracts_dir"]),
         artifacts_dir=_resolve(root, paths["artifacts_dir"]),
-        subdirs={k: paths[k] for k in ("identities", "audits", "validations", "drafts", "runs")},
+        subdirs={**{k: paths[k] for k in ("identities", "audits", "validations", "drafts", "runs")},
+                 "layers": paths.get("layers", "layers")},   # bilans des couches (facultatif)
         discovery_patterns=tuple(discovery.get("patterns", [])),
         overrides=tuple(discovery.get("overrides") or ()),
         candidate_separators=tuple(cfg["reading"]["candidate_separators"]),
