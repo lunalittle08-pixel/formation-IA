@@ -24,6 +24,9 @@ Documents complémentaires déjà présents :
 - [docs/datasheets/TEMPLATE.md](datasheets/TEMPLATE.md) — modèle de datasheet d'un jeu de données ;
 - [notebooks/01_audit_journal_de_bord.ipynb](../notebooks/01_audit_journal_de_bord.ipynb) —
   journal de bord exécutable : interprétation des constats et décisions ;
+- [notebooks/02_bronze_journal_de_bord.ipynb](../notebooks/02_bronze_journal_de_bord.ipynb) —
+  intégration du Bronze pas à pas (méthode en 8 étapes, colonnes techniques, librairies,
+  invariants vérifiés en base, RGPD, écarts avec les consignes du formateur) ;
 - [README.md](../README.md) du projet — démarrage rapide.
 
 ## Ordre de lecture conseillé
