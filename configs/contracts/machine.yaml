@@ -3,7 +3,7 @@ apiVersion: indusense/v1
 kind: DataContract
 contract:
   id: machine
-  version: 1.0.0
+  version: 2.0.0
   status: active
   owner: "TODO: méthodes / maintenance"
   description: Référentiel des machines du parc (une ligne par machine).
@@ -29,10 +29,15 @@ schema:
     - {name: location, type: CATEGORY, declared_type: VARCHAR(16), description: Atelier}
     - {name: criticality, type: CATEGORY, declared_type: VARCHAR(8),
        description: Criticité de la machine pour la production}   # TODO : fixer allowed_values
-    - {name: is_active, type: BOOLEAN, declared_type: BOOLEAN, description: Machine en service}
-    - {name: created_at, type: DATETIME, declared_type: TIMESTAMPTZ, description: Création de l'enregistrement}
-    - {name: updated_at, type: DATETIME, declared_type: TIMESTAMPTZ, description: Dernière modification,
-       on_fail: warning}
+  # Colonnes du CREATE TABLE qu'aucun INSERT n'alimente : leur valeur viendrait du DEFAULT
+  # de la base au moment du chargement, pas de la source. Non ingérées (rien à conserver).
+  excluded_columns:
+    - {name: is_active, declared_type: BOOLEAN,
+       reason: "absente de tous les INSERT ; valeur = DEFAULT TRUE de la base, pas une donnée source"}
+    - {name: created_at, declared_type: TIMESTAMPTZ,
+       reason: "absente de tous les INSERT ; valeur = DEFAULT NOW() (date de chargement), pas une donnée source"}
+    - {name: updated_at, declared_type: TIMESTAMPTZ,
+       reason: "absente de tous les INSERT ; valeur = DEFAULT NOW() (date de chargement), pas une donnée source"}
 quality:
   min_rows: 1
   max_duplicate_rows: 0
