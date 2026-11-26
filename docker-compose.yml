@@ -1,0 +1,108 @@
+# Infrastructure locale de developpement.
+#
+# Le schema n'est plus cree par les scripts d'initialisation PostgreSQL :
+# il est desormais gere par Alembic (voir `make migrate`). Melanger les deux
+# sources de verite produisait de la derive de schema.
+
+volumes:
+  guistorage:
+    name: ${GUI_DATA_VOLUME:-pg-gui-data}
+  dbstorage:
+    name: ${DB_DATA_VOLUME:-pg-db-data}
+  prometheusstorage:
+    name: ${PROMETHEUS_DATA_VOLUME:-prometheus-data}
+  alertmanagerstorage:
+    name: ${ALERTMANAGER_DATA_VOLUME:-alertmanager-data}
+  grafanastorage:
+    name: ${GRAFANA_DATA_VOLUME:-grafana-data}
+
+services:
+  db:
+    image: postgres:${DB_TAG:-15.1}
+    restart: unless-stopped
+    # Ecoute sur la boucle locale uniquement : une base de developpement ne
+    # doit pas etre joignable depuis le reseau.
+    ports:
+      - "127.0.0.1:${DB_PORT:-5432}:5432"
+    environment:
+      POSTGRES_DB: ${DB_NAME:-indusense_db}
+      POSTGRES_USER: ${DB_USER:-indusense_user}
+      POSTGRES_PASSWORD: ${DB_PASSWORD:-dbpassword}
+    volumes:
+      - dbstorage:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${DB_USER:-indusense_user} -d ${DB_NAME:-indusense_db}"]
+      interval: 2s
+      timeout: 3s
+      retries: 30
+      start_period: 5s
+
+  admin:
+    image: dpage/pgadmin4:${GUI_TAG:-6.15}
+    restart: unless-stopped
+    ports:
+      - "127.0.0.1:${GUI_PORT:-8080}:80"
+    environment:
+      PGADMIN_DEFAULT_EMAIL: ${GUI_EMAIL:-admin@example.org}
+      PGADMIN_DEFAULT_PASSWORD: ${GUI_PASSWORD:-guipassword}
+    volumes:
+      - guistorage:/var/lib/pgadmin
+    depends_on:
+      db:
+        condition: service_healthy
+
+  # -------------------------------------------------------------------------
+  # Monitoring
+  #
+  # Prometheus scrape l'API qui tourne sur l'hote (`make api`), pas un
+  # conteneur : le modele et les artefacts restent dans le venv de developpement.
+  # `host.docker.internal` est fourni par Docker Desktop et par le mapping
+  # `extra_hosts` sur Linux.
+  # -------------------------------------------------------------------------
+  prometheus:
+    image: prom/prometheus:${PROMETHEUS_TAG:-v2.54.1}
+    restart: unless-stopped
+    ports:
+      - "127.0.0.1:${PROMETHEUS_PORT:-9090}:9090"
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    volumes:
+      - ./monitoring/prometheus:/etc/prometheus:ro
+      - prometheusstorage:/prometheus
+    command:
+      - --config.file=/etc/prometheus/prometheus.yml
+      - --storage.tsdb.path=/prometheus
+      - --storage.tsdb.retention.time=15d
+      - --web.enable-lifecycle
+
+  alertmanager:
+    image: prom/alertmanager:${ALERTMANAGER_TAG:-v0.27.0}
+    restart: unless-stopped
+    ports:
+      - "127.0.0.1:${ALERTMANAGER_PORT:-9093}:9093"
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    volumes:
+      - ./monitoring/alertmanager:/etc/alertmanager:ro
+      - alertmanagerstorage:/alertmanager
+    command:
+      - --config.file=/etc/alertmanager/alertmanager.yml
+      - --storage.path=/alertmanager
+
+  grafana:
+    image: grafana/grafana:${GRAFANA_TAG:-11.2.0}
+    restart: unless-stopped
+    ports:
+      - "127.0.0.1:${GRAFANA_PORT:-3000}:3000"
+    environment:
+      GF_SECURITY_ADMIN_USER: ${GRAFANA_ADMIN_USER:-admin}
+      GF_SECURITY_ADMIN_PASSWORD: ${GRAFANA_ADMIN_PASSWORD:-indusense}
+      GF_USERS_ALLOW_SIGN_UP: "false"
+      GF_ANALYTICS_REPORTING_ENABLED: "false"
+      GF_ANALYTICS_CHECK_FOR_UPDATES: "false"
+    volumes:
+      - ./monitoring/grafana/provisioning:/etc/grafana/provisioning:ro
+      - ./monitoring/grafana/dashboards:/var/lib/grafana/dashboards:ro
+      - grafanastorage:/var/lib/grafana
+    depends_on:
+      - prometheus
