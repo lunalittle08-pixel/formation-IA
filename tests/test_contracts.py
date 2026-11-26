@@ -54,10 +54,3 @@ def test_derive_de_schema(settings):
     c = _contract([{"name": "a", "type": "INTEGER"}, {"name": "b", "type": "TEXT"}])
     msgs = [v.message for v in validate_dataset(Dataset("t", df), c, settings).violations]
     assert "colonnes attendues absentes" in msgs and "colonnes non prévues par le contrat" in msgs
-
-
-def test_colonne_exclue_non_signalee_comme_derive(settings):
-    df = pd.DataFrame({"a": ["1"], "defaut_sql": [""]}, dtype=str)
-    c = _contract([{"name": "a", "type": "INTEGER"}],
-                  excluded_columns=[{"name": "defaut_sql", "reason": "DEFAULT de la base"}])
-    assert validate_dataset(Dataset("t", df), c, settings).passed

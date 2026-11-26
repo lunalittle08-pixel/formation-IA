@@ -33,7 +33,6 @@ from indusense.layers.checks import bronze_issues
 from indusense.layers.gold import query_errors, strip_sql
 from indusense.layers.settings import LayerSettings
 from indusense.layers.silver import build_silver
-from indusense.layers.stage import ingested_frame
 
 CFG = LayerSettings(pseudonymize_privacy=("pseudonymize", "drop"))
 SALT = "sel-de-test"
@@ -131,38 +130,32 @@ def test_colonne_du_schema_sql_jamais_alimentee():
     assert any("aucune ligne" in e for e in bronze_issues(vide, _contract(["a"]), "x", CFG)[0])
 
 
-def _excluding(columns, excluded):
-    c = _contract(columns)
-    c["schema"]["excluded_columns"] = [{"name": n, "reason": "DEFAULT de la base"} for n in excluded]
+def _tracing(columns, traceability):
+    c = _contract(columns + traceability)
+    for col in c["schema"]["columns"]:
+        if col["name"] in traceability:
+            col["traceability"] = True
     return c
 
 
-def test_colonne_sql_non_alimentee_exclue_par_le_contrat():
+def test_colonne_de_tracabilite_non_alimentee_admise_au_bronze():
     ds = Dataset("t", pd.DataFrame({"a": ["1"], "b": [""]}, dtype=str), table="t",
                  provided_columns=["a"])
-    contract = _excluding(["a"], ["b"])
-    assert bronze_issues(ds, contract, "dump.sql:t", CFG) == ([], [])
-    assert list(ingested_frame(ds.df, contract).columns) == ["a"]
+    errors, warnings = bronze_issues(ds, _tracing(["a"], ["b"]), "dump.sql:t", CFG)
+    assert errors == []                                        # la table peut être créée
+    assert any("'b' (traçabilité)" in w for w in warnings)     # mais le fait est signalé
+    fournie = Dataset("t", pd.DataFrame({"a": ["1"], "b": ["x"]}, dtype=str), table="t",
+                      provided_columns=["a", "b"])
+    assert bronze_issues(fournie, _tracing(["a"], ["b"]), "dump.sql:t", CFG) == ([], [])
 
 
-def test_exclusion_refusee_si_la_source_fournit_des_valeurs():
-    csv = Dataset("t", pd.DataFrame({"a": ["1"], "b": ["x"]}, dtype=str))
-    sql = Dataset("t", pd.DataFrame({"a": ["1"], "b": ["x"]}, dtype=str), table="t",
-                  provided_columns=["a", "b"])
-    for ds in (csv, sql):
-        errors, _ = bronze_issues(ds, _excluding(["a"], ["b"]), "src", CFG)
-        assert any("perdrait des données" in e for e in errors)
-    absente = Dataset("t", pd.DataFrame({"a": ["1"]}, dtype=str), table="t", provided_columns=["a"])
-    assert any("exclue 'zz' absente" in e
-               for e in bronze_issues(absente, _excluding(["a"], ["zz"]), "src", CFG)[0])
-
-
-def test_structure_des_exclusions():
-    c = _excluding(["a"], ["a"])
-    c["schema"]["excluded_columns"].append({"name": "b"})
+def test_structure_de_traceability():
+    c = _tracing(["a"], ["b"])
+    c["schema"]["columns"][1]["required"] = True
+    c["schema"]["columns"][0]["traceability"] = "oui"
     errs = structure_errors(c)
-    assert any("à la fois dans columns" in e for e in errs)
-    assert any("b : exclusion sans reason" in e for e in errs)
+    assert any("b : une colonne de traçabilité ne peut pas être required" in e for e in errs)
+    assert any("a : traceability doit valoir true ou false" in e for e in errs)
 
 
 # ------------------------------------------------------------------ silver
@@ -178,12 +171,14 @@ CONTRACT = {
         {"name": "equipe", "type": "CATEGORY", "allowed_values": ["matin", "nuit"]},
         {"name": "heure", "type": "TIME"},
         {"name": "note", "type": "INTEGER", "on_fail": "warning"},
+        {"name": "cree_le", "type": "DATETIME", "traceability": True},
     ]}}
 
 
 def _bronze(rows: list[list[str]]) -> pd.DataFrame:
     """Table Bronze relue comme le fait le Silver (tout en texte)."""
-    cols = ["id", "nom", "badge", "gravite", "mesure", "equipe", "heure", "note", "hors_contrat"]
+    cols = ["id", "nom", "badge", "gravite", "mesure", "equipe", "heure", "note", "cree_le",
+            "hors_contrat"]
     raw = pd.DataFrame(rows, columns=cols, dtype=str)
     frame = build_bronze_frame(raw, {c: "TEXT" for c in cols}, META, CFG).frame
     return frame.astype(object).where(frame.notna(), "").astype(str)
@@ -191,13 +186,13 @@ def _bronze(rows: list[list[str]]) -> pd.DataFrame:
 
 def test_silver_typage_quarantaine_et_lignage():
     bronze = _bronze([
-        ["I1", "Léa", "OP0001", "3", "6,5", "matin", "05:42", "7", "x"],    # valide
-        ["I1", "Léa", "OP0001", "3", "6,5", "matin", "05:42", "7", "x"],    # doublon exact
-        ["I2", "Ana", "OP0002", "9", "N/A", "nuit", "21:08", "abc", "x"],   # gravité > 5
-        ["I3", "Ana", "OP0002", "2", "1.5", "Matin", "", "", "x"],          # équipe hors liste
-        ["I4", "Max", "OP0003", "", "2", "nuit", "10:00", "", "x"],         # gravité manquante
-        ["I5", "Max", "OP0003", "4", "2", "nuit", "10:00", "3.5", "x"],     # valide (note -> NULL)
-        ["I5", "Max", "OP0003", "1", "2", "nuit", "10:00", "", "x"],        # même clé : conflit
+        ["I1", "Léa", "OP0001", "3", "6,5", "matin", "05:42", "7", "pas une date", "x"],    # valide
+        ["I1", "Léa", "OP0001", "3", "6,5", "matin", "05:42", "7", "pas une date", "x"],    # doublon exact
+        ["I2", "Ana", "OP0002", "9", "N/A", "nuit", "21:08", "abc", "pas une date", "x"],   # gravité > 5
+        ["I3", "Ana", "OP0002", "2", "1.5", "Matin", "", "", "pas une date", "x"],          # équipe hors liste
+        ["I4", "Max", "OP0003", "", "2", "nuit", "10:00", "", "pas une date", "x"],         # gravité manquante
+        ["I5", "Max", "OP0003", "4", "2", "nuit", "10:00", "3.5", "pas une date", "x"],     # valide (note -> NULL)
+        ["I5", "Max", "OP0003", "1", "2", "nuit", "10:00", "", "pas une date", "x"],        # même clé : conflit
     ])
     r = build_silver("jeu", bronze, CONTRACT, CFG, _inference(), SALT)
 
@@ -207,6 +202,8 @@ def test_silver_typage_quarantaine_et_lignage():
     assert row["gravite"] == 3 and row["mesure"] == 6.5 and row["heure"] == time(5, 42)
     assert "nom" not in r.valid.columns                        # privacy: drop -> retirée
     assert "hors_contrat" not in r.valid.columns               # absente du contrat -> retirée
+    assert "cree_le" not in r.valid.columns                    # traçabilité : reste au Bronze
+    assert r.report["dropped_columns_traceability"] == ["cree_le"]   # ni contrôlée (pas de rejet)
     assert row["badge"] == pseudonymize("OP0001", SALT)        # pseudonyme, format non contrôlé
     assert (row["_source_hash"], row["_row_number"]) == ("f" * 64, 1)   # lien vers le Bronze
     assert r.report["pseudonymized_columns"] == ["nom", "badge"]
