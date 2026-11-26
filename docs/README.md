@@ -14,6 +14,7 @@ s'accompagne de la mise à jour du document concerné, dans la même branche.
 | [Manuel utilisateur](04_manuel_utilisateur.md) | utilisateur du pipeline | commandes, lecture des rapports, questions fréquentes |
 | [Mode opératoire](05_mode_operatoire.md) | utilisateur du pipeline | procédures pas à pas (ajouter une source, traiter un échec, versionner…) |
 | [Dossier d'exploitation](06_dossier_exploitation.md) | personne qui installe et fait tourner le pipeline | environnement, installation, exécution, codes retour, journaux, sauvegarde, incidents |
+| [Guide des couches Bronze / Silver / Gold](07_guide_couches_bronze_silver_gold.md) | apprenant, développeur | PostgreSQL sous Docker, `.env`, pseudonymisation, empreinte de ligne, typage et quarantaine Silver, requêtes Gold, commande `indusense load` |
 
 Documents complémentaires déjà présents :
 

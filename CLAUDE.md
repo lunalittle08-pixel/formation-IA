@@ -23,6 +23,7 @@ maintenance prédictive (pannes machines). Sprint 1 : fiabiliser les données (C
 uv sync                            # installe les dépendances
 uv run indusense run               # identity + audit + draft + validate
 uv run indusense contract check    # structure des contrats
+uv run indusense load all          # bronze -> silver -> gold dans PostgreSQL (docker compose + .env)
 uv run pytest                      # tests
 ```
 
