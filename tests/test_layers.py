@@ -28,10 +28,12 @@ from indusense.layers.bronze import (
     row_hash,
     source_columns,
 )
+from indusense.contracts.model import structure_errors
 from indusense.layers.checks import bronze_issues
 from indusense.layers.gold import query_errors, strip_sql
 from indusense.layers.settings import LayerSettings
 from indusense.layers.silver import build_silver
+from indusense.layers.stage import ingested_frame
 
 CFG = LayerSettings(pseudonymize_privacy=("pseudonymize", "drop"))
 SALT = "sel-de-test"
@@ -127,6 +129,40 @@ def test_colonne_du_schema_sql_jamais_alimentee():
     assert any("'b' existe au schéma" in e for e in errors)
     vide = Dataset("t", pd.DataFrame({"a": []}, dtype=str))
     assert any("aucune ligne" in e for e in bronze_issues(vide, _contract(["a"]), "x", CFG)[0])
+
+
+def _excluding(columns, excluded):
+    c = _contract(columns)
+    c["schema"]["excluded_columns"] = [{"name": n, "reason": "DEFAULT de la base"} for n in excluded]
+    return c
+
+
+def test_colonne_sql_non_alimentee_exclue_par_le_contrat():
+    ds = Dataset("t", pd.DataFrame({"a": ["1"], "b": [""]}, dtype=str), table="t",
+                 provided_columns=["a"])
+    contract = _excluding(["a"], ["b"])
+    assert bronze_issues(ds, contract, "dump.sql:t", CFG) == ([], [])
+    assert list(ingested_frame(ds.df, contract).columns) == ["a"]
+
+
+def test_exclusion_refusee_si_la_source_fournit_des_valeurs():
+    csv = Dataset("t", pd.DataFrame({"a": ["1"], "b": ["x"]}, dtype=str))
+    sql = Dataset("t", pd.DataFrame({"a": ["1"], "b": ["x"]}, dtype=str), table="t",
+                  provided_columns=["a", "b"])
+    for ds in (csv, sql):
+        errors, _ = bronze_issues(ds, _excluding(["a"], ["b"]), "src", CFG)
+        assert any("perdrait des données" in e for e in errors)
+    absente = Dataset("t", pd.DataFrame({"a": ["1"]}, dtype=str), table="t", provided_columns=["a"])
+    assert any("exclue 'zz' absente" in e
+               for e in bronze_issues(absente, _excluding(["a"], ["zz"]), "src", CFG)[0])
+
+
+def test_structure_des_exclusions():
+    c = _excluding(["a"], ["a"])
+    c["schema"]["excluded_columns"].append({"name": "b"})
+    errs = structure_errors(c)
+    assert any("à la fois dans columns" in e for e in errs)
+    assert any("b : exclusion sans reason" in e for e in errs)
 
 
 # ------------------------------------------------------------------ silver
