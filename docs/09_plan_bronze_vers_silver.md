@@ -65,9 +65,9 @@ générique : groupes, méthodes et seuils vivent dans la configuration et les c
 | 1 | `feat/bronze-portrait` | indice de confiance par ligne (colonne technique), portrait du Bronze, bilan de réception | Q-19 | à faire |
 | 2 | `contract/silver-v1` | extension du format des contrats | Q-10, Q-12, Q-13 | à faire |
 | 3 | `feat/silver-copies-conflits` | registres des copies et des conflits, rapprochement | Q-20 (Q-01 répondue) | à faire |
-| 4 | `feat/silver-qualification` | drapeaux qualité par ligne, suspects par `machine_id` (Q-05 répondue) | Q-21, Q-06, Q-08 | à faire |
-| 5 | `feat/silver-temps` | UTC déclaré, instant d'ingestion, colonnes dérivées | — (Q-02 répondue : UTC) | à faire |
-| 6 | `feat/silver-imputation` | indicateurs de manque, politique d'imputation | Q-06, Q-07 | à faire |
+| 4 | `feat/silver-qualification` | drapeaux qualité par ligne, suspects par `machine_id` (Q-05 répondue), valeurs rondes valides (Q-09) | Q-21, Q-08 | à faire |
+| 5 | `feat/silver-temps` | UTC déclaré, instant d'ingestion, colonnes dérivées | Q-24 (Q-02 répondue : UTC) | à faire |
+| 6 | `feat/silver-imputation` | indicateurs de manque, politique d'imputation (cadence horaire, Q-06 répondue) | Q-07 | à faire |
 | 7 | `feat/silver-journal-publication` | journal des transformations, publication contrôlée | — | à faire |
 | 8 | `docs/notebook-silver` | journal de bord Silver et graphiques | Q-08 | à faire |
 
@@ -144,7 +144,7 @@ Les bornes et listes en attente (Q-10, Q-12, Q-13) sont reportées ici une fois 
 
 ### Étape 6 — Manquants et imputation (geste 5)
 
-- indicateurs `was_missing` et durée des trous (d'après la cadence déclarée, Q-06) ;
+- indicateurs `was_missing` et durée des trous (d'après la cadence horaire confirmée, Q-06 ; une heure sans mesure peut être un arrêt, jamais une panne) ;
 - politique `imputation: none` par défaut ; une méthode n'est activée que sur décision du
   contrat, avec `x_source`, `x_estimated`, `x_imputation_method`, une durée maximale et sans
   traverser une maintenance ;
