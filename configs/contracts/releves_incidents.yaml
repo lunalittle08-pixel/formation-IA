@@ -4,7 +4,7 @@ apiVersion: indusense/v1
 kind: DataContract
 contract:
   id: releves_incidents
-  version: 1.0.0
+  version: 1.1.0
   status: active
   owner: "TODO: responsable maintenance (producteur des relevés)"
   description: >
@@ -74,7 +74,8 @@ schema:
       max_missing_pct: 25
       on_fail: warning            # texte libre : un manque n'est pas bloquant
       pii: true
-      privacy: to_decide          # risque : du texte libre peut contenir des noms
+      privacy: keep               # Q-14 (27/11/2026) : conservé au Silver, absent du Gold
+                                  # (aucun apport) ; texte libre pouvant contenir des noms
 
     - name: shift
       type: CATEGORY

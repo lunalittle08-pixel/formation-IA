@@ -18,6 +18,7 @@ CONTRACT_KIND = "DataContract"
 API_VERSION = "indusense/v1"
 STATUSES = {"draft", "active", "deprecated"}
 PRIVACY_ACTIONS = {"keep", "drop", "pseudonymize", "aggregate", "to_decide"}
+PRIVACY_UNDECIDED = "to_decide"     # seule valeur qui signifie « décision à prendre »
 COLUMN_KEYS = {"name", "type", "description", "unit", "required", "unique", "min", "max",
                "allowed_values", "pattern", "max_missing_pct", "references", "pii",
                "privacy", "on_fail", "declared_type", "observed", "audit", "traceability"}

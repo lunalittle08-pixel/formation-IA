@@ -278,5 +278,5 @@ mini-projet, puis appliquée.
 chronologique avec purge, normalisation ajustée sur le jeu d'entraînement seul, export versionné
 avec DVC.
 
-**RGPD** : exclure le commentaire libre des variables du modèle et des exports. Sa décision est
-aujourd'hui `to_decide`.
+**RGPD** : exclure le commentaire libre des variables du modèle et des exports. Décision Q-14
+(27/11/2026) : `privacy: keep`, conservé au Silver, absent du Gold.
