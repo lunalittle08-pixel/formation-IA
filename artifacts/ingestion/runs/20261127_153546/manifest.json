@@ -1,0 +1,69 @@
+{
+  "run_id": "20261127_153546",
+  "started_at": "2026-11-27T15:35:46",
+  "finished_at": "2026-11-27T15:36:28",
+  "stages": [
+    "load:silver"
+  ],
+  "config": {
+    "path": "configs/pipeline.yaml",
+    "sha256": "04ff2854441a201f08ec4f6de774ebc374b082513107c6b1ef0a3fe2d3766cea"
+  },
+  "findings_spec": {
+    "path": "configs/findings.yaml",
+    "sha256": "45b7414ee62fe15d71b55ce199567791239ab42f13c2fe08ea8b2873599b7266"
+  },
+  "versions": {
+    "indusense": "0.1.0",
+    "python": "3.15.0rc2",
+    "pandas": "3.1.1"
+  },
+  "inputs": [],
+  "outputs": [
+    "artifacts/ingestion/layers/20261127/silver_machine_153546.md",
+    "artifacts/ingestion/layers/20261127/silver_machine_153546.json",
+    "postgresql:silver.machine",
+    "postgresql:silver.machine_rejects",
+    "artifacts/ingestion/layers/20261127/silver_maintenance_153546.md",
+    "artifacts/ingestion/layers/20261127/silver_maintenance_153546.json",
+    "postgresql:silver.maintenance",
+    "postgresql:silver.maintenance_rejects",
+    "artifacts/ingestion/layers/20261127/silver_releves_incidents_153546.md",
+    "artifacts/ingestion/layers/20261127/silver_releves_incidents_153546.json",
+    "postgresql:silver.releves_incidents",
+    "postgresql:silver.releves_incidents_rejects",
+    "artifacts/ingestion/layers/20261127/silver_telemetry_153546.md",
+    "artifacts/ingestion/layers/20261127/silver_telemetry_153546.json",
+    "postgresql:silver.telemetry",
+    "postgresql:silver.telemetry_rejects"
+  ],
+  "summary": {
+    "refused": [],
+    "silver": {
+      "machine": {
+        "rows_bronze": 15,
+        "rows_silver": 15,
+        "rows_rejected": 0,
+        "exact_duplicates_removed": 0
+      },
+      "maintenance": {
+        "rows_bronze": 115,
+        "rows_silver": 115,
+        "rows_rejected": 0,
+        "exact_duplicates_removed": 0
+      },
+      "releves_incidents": {
+        "rows_bronze": 1245,
+        "rows_silver": 1245,
+        "rows_rejected": 0,
+        "exact_duplicates_removed": 0
+      },
+      "telemetry": {
+        "rows_bronze": 135626,
+        "rows_silver": 131034,
+        "rows_rejected": 4592,
+        "exact_duplicates_removed": 0
+      }
+    }
+  }
+}
