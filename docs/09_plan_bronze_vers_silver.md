@@ -51,7 +51,7 @@ au Gold, ajustée sur l'entraînement seulement.
 - `maintenance` : 115 lignes sur 115 en quarantaine, valeurs `proactive` / `reactive` hors de
   la liste du contrat ; la liste du contrat ne correspondait pas à la contrainte `CHECK` de la
   source : contrat corrigé (0.4.0, Q-03), 0 ligne en quarantaine depuis ;
-- `releves_incidents` : 215 incidents sur 1 245 marqués `type_alarme_capteur` (Q-15).
+- `releves_incidents` : 215 incidents sur 1 245 marqués `type_alarme_capteur`, à corréler avec la mesure de la machine à l'heure précédente (Q-15 répondue, Q-24).
 
 ## 3. Étapes
 
@@ -63,11 +63,11 @@ générique : groupes, méthodes et seuils vivent dans la configuration et les c
 |---|---|---|---|---|
 | 0 | `docs/registre-questions-metier` | registre des questions métier, ce plan | — | fait (à fusionner) |
 | 1 | `feat/bronze-portrait` | indice de confiance par ligne (colonne technique), portrait du Bronze, bilan de réception | Q-19 | à faire |
-| 2 | `contract/silver-v1` | extension du format des contrats | Q-10, Q-12, Q-13 | à faire |
+| 2 | `contract/silver-v1` | extension du format des contrats | — (Q-10, Q-12, Q-13 répondues, déjà dans les contrats) | à faire |
 | 3 | `feat/silver-copies-conflits` | registres des copies et des conflits, rapprochement | Q-20 (Q-01 répondue) | à faire |
 | 4 | `feat/silver-qualification` | drapeaux qualité par ligne, suspects par `machine_id` (Q-05 répondue), valeurs rondes valides (Q-09), MAD / IQR avec `scipy` (Q-08) | Q-21 | à faire |
 | 5 | `feat/silver-temps` | UTC déclaré, instant d'ingestion, colonnes dérivées | Q-24 (Q-02 répondue : UTC) | à faire |
-| 6 | `feat/silver-imputation` | indicateurs de manque, politique d'imputation (cadence horaire, Q-06 répondue) | Q-07 | à faire |
+| 6 | `feat/silver-imputation` | indicateurs de manque, imputation des cases vides (Q-11 répondue : panne de collecte, on impute) | Q-26, Q-07 | à faire |
 | 7 | `feat/silver-journal-publication` | journal des transformations, publication contrôlée | — | à faire |
 | 8 | `docs/notebook-silver` | journal de bord Silver et graphiques (`matplotlib`, `seaborn` ; `scikit-learn` à ajouter) | — | à faire |
 
@@ -115,7 +115,8 @@ Clés optionnelles contrôlées par `indusense contract check` :
 - `validated_by`, `open_questions` (renvoi aux `Q-xx`).
 
 Sans réponse métier, la valeur reste `to_decide` et le comportement est le plus conservateur.
-Les bornes et listes en attente (Q-10, Q-12, Q-13) sont reportées ici une fois tranchées.
+Bornes et listes tranchées (Q-10, Q-12, Q-13) : déjà reportées dans les contrats (`telemetry` 0.3.0,
+`machine` 2.2.0, `maintenance` 0.5.0).
 
 ### Étape 3 — Copies et conflits (geste 3)
 
@@ -145,6 +146,8 @@ Les bornes et listes en attente (Q-10, Q-12, Q-13) sont reportées ici une fois 
 ### Étape 6 — Manquants et imputation (geste 5)
 
 - indicateurs `was_missing` et durée des trous (d'après la cadence horaire confirmée, Q-06 ; une heure sans mesure peut être un arrêt, jamais une panne) ;
+- case vide d'une mesure = panne de collecte (Q-11) : **imputée**, la ligne n'est plus rejetée par
+  `required` ; méthode et longueur maximale : Q-26 ;
 - politique `imputation: none` par défaut ; une méthode n'est activée que sur décision du
   contrat, avec `x_source`, `x_estimated`, `x_imputation_method`, une durée maximale et sans
   traverser une maintenance ;
