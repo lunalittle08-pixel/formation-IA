@@ -5,7 +5,7 @@ apiVersion: indusense/v1
 kind: DataContract
 contract:
   id: telemetry
-  version: 0.2.0
+  version: 0.3.0
   status: draft
   owner: "TODO: équipe OT / supervision"
   description: >
@@ -37,8 +37,8 @@ schema:
       description: Température moyenne
       unit: °C
       max_missing_pct: 5
-      min: 0          # TODO valider : min observé 32.00 et max 80.00 tout ronds => écrêtage capteur ?
-      max: 120
+      min: 19         # Q-10 (27/11/2026) : jamais sous la température ambiante (min observé 32)
+      max: 120        # Q-10 : borne confirmée ; valeurs rondes 32 / 80 valides (Q-09)
 
     - name: pressure_bar
       type: FLOAT
@@ -46,14 +46,14 @@ schema:
       unit: bar
       required: true
       min: 0
-      max: 300        # TODO valider
+      max: 300        # Q-10 : borne confirmée
 
     - name: voltage_mean_v
       type: FLOAT
       description: Tension moyenne d'alimentation
       unit: V
       required: true
-      min: 200        # TODO valider : réseau 230 V ± 10 %
+      min: 200        # Q-10 : bornes confirmées
       max: 260
 
     - name: rotation_mean_rpm
@@ -62,7 +62,7 @@ schema:
       unit: tr/min
       required: true
       min: 0
-      max: 3000       # TODO valider : 1100 et 1900 observés tout ronds => écrêtage ?
+      max: 3000       # Q-10 : borne confirmée ; valeurs rondes 1100 / 1900 valides (Q-09)
 
     - name: pieces_produced
       type: INTEGER

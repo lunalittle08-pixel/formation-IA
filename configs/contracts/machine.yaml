@@ -3,7 +3,7 @@ apiVersion: indusense/v1
 kind: DataContract
 contract:
   id: machine
-  version: 2.1.0
+  version: 2.2.0
   status: active
   owner: "TODO: méthodes / maintenance"
   description: Référentiel des machines du parc (une ligne par machine).
@@ -28,7 +28,8 @@ schema:
     - {name: production_line, type: CATEGORY, declared_type: VARCHAR(16), description: Ligne de production}
     - {name: location, type: CATEGORY, declared_type: VARCHAR(16), description: Atelier}
     - {name: criticality, type: CATEGORY, declared_type: VARCHAR(8),
-       description: Criticité de la machine pour la production}   # TODO : fixer allowed_values
+       allowed_values: [LOW, MEDIUM, HIGH],      # Q-12 (27/11/2026) : liste fermée
+       description: Criticité de la machine pour la production}
     # Champs de traçabilité (décision avec le formateur, 2026-11-26) : aucun INSERT de la source
     # ne les fournit (DEFAULT de la base). Créés et chargés au Bronze tels quels (vides),
     # non repris au Silver (ni contrôlés ni propagés). Jamais obligatoires.
