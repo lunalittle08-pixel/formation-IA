@@ -42,7 +42,7 @@ au Gold, ajustée sur l'entraînement seulement.
 | Journal des transformations ligne à ligne | ❌ | à créer |
 | Contrôles de sortie **bloquants**, rapprochement par lot et par statut | ⚠ cohérence du nombre de lignes écrites | ❌ publication non conditionnée ; pas de rapprochement par `batch_id` |
 | Artefacts Bronze : portrait, registre des questions, bilan de réception | ⚠ audit, manifeste, registre des lots | ❌ portrait par lot, registre des questions (étape 0), bilan |
-| Graphiques (manquants, séries, boîtes par groupe, corrélations) | ❌ aucune librairie installée | décision Q-08 |
+| Graphiques (manquants, séries, boîtes par groupe, corrélations) | ⚠ `matplotlib` et `seaborn` installés (Q-08 répondue), aucun graphique encore | étape 8 |
 
 **Faits mesurés qui orientent le plan** (lots du 26/11/2026, voir le registre) :
 
@@ -65,11 +65,11 @@ générique : groupes, méthodes et seuils vivent dans la configuration et les c
 | 1 | `feat/bronze-portrait` | indice de confiance par ligne (colonne technique), portrait du Bronze, bilan de réception | Q-19 | à faire |
 | 2 | `contract/silver-v1` | extension du format des contrats | Q-10, Q-12, Q-13 | à faire |
 | 3 | `feat/silver-copies-conflits` | registres des copies et des conflits, rapprochement | Q-20 (Q-01 répondue) | à faire |
-| 4 | `feat/silver-qualification` | drapeaux qualité par ligne, suspects par `machine_id` (Q-05 répondue), valeurs rondes valides (Q-09) | Q-21, Q-08 | à faire |
+| 4 | `feat/silver-qualification` | drapeaux qualité par ligne, suspects par `machine_id` (Q-05 répondue), valeurs rondes valides (Q-09), MAD / IQR avec `scipy` (Q-08) | Q-21 | à faire |
 | 5 | `feat/silver-temps` | UTC déclaré, instant d'ingestion, colonnes dérivées | Q-24 (Q-02 répondue : UTC) | à faire |
 | 6 | `feat/silver-imputation` | indicateurs de manque, politique d'imputation (cadence horaire, Q-06 répondue) | Q-07 | à faire |
 | 7 | `feat/silver-journal-publication` | journal des transformations, publication contrôlée | — | à faire |
-| 8 | `docs/notebook-silver` | journal de bord Silver et graphiques | Q-08 | à faire |
+| 8 | `docs/notebook-silver` | journal de bord Silver et graphiques (`matplotlib`, `seaborn` ; `scikit-learn` à ajouter) | — | à faire |
 
 ### Étape 0 — Registre des questions métier (artefact 3)
 
@@ -169,5 +169,5 @@ quatre travaux courts du guide.
 ## 4. Hors périmètre
 
 Mise à l'échelle, fenêtres temporelles, labels et découpage entraînement / validation / test :
-Gold, sprint suivant. `pandera` n'est pas retenu : les contrats YAML jouent déjà ce rôle (à
-confirmer, Q-08).
+Gold, sprint suivant. `pandera` n'est pas retenu : les contrats YAML jouent déjà ce rôle
+(Q-08, choix laissé à l'équipe).

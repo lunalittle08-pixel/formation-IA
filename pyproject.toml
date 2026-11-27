@@ -6,10 +6,13 @@ readme = "README.md"
 requires-python = ">=3.13"
 dependencies = [
     "alembic>=1.16",
+    "matplotlib>=3.10",  # graphiques des journaux de bord (Q-08)
     "pandas>=3.1",     # wheels CPython 3.15 disponibles à partir de 3.1
     "psycopg[binary]>=3.3.9",
     "pydantic-settings>=2.16.3",
     "pyyaml>=6.0",     # lecture de la config et des contrats
+    "scipy>=1.16",       # statistiques robustes : MAD, IQR (Q-08)
+    "seaborn>=0.13",     # boîtes par groupe, distributions (Q-08)
     "sqlalchemy>=2.1.9",
     "sqlglot>=27",     # analyse des scripts SQL (pur Python)
 ]
