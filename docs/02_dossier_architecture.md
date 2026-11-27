@@ -145,6 +145,7 @@ sequenceDiagram
 | `sqlglot` ≥ 27 | analyse des scripts SQL |
 | `sqlalchemy` ≥ 2.1, `psycopg` ≥ 3.3 | description des tables et dialogue avec PostgreSQL (couches) |
 | `alembic` ≥ 1.16 | migrations de schéma du Bronze (`indusense db ...`) |
+| `scipy` ≥ 1.16, `matplotlib` ≥ 3.10, `seaborn` ≥ 0.13 | statistiques robustes (MAD, IQR) et graphiques des journaux de bord (Q-08) ; `scikit-learn` à venir, `pandera` non retenu (rôle tenu par les contrats) |
 | `pytest` ≥ 8, `ipykernel` (développement) | tests, notebook |
 
 Versions exactes figées dans `uv.lock`. Construction du package : `hatchling`.
