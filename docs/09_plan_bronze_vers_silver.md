@@ -37,7 +37,7 @@ au Gold, ajustée sur l'entraînement seulement.
 | Copies exactes : une occurrence gardée, **registre** des copies | ⚠ dédoublonnage sur `_row_hash`, compteur | ❌ pas de registre « gardée ↔ écartées » |
 | Même clé, contenu différent = **conflit**, registre séparé | ⚠ mis en quarantaine (`primary_key`) | ❌ pas de registre des conflits |
 | Qualifier : valide / manquant / invalide / **suspect** ; aberrants signalés, jamais supprimés | ⚠ règles bloquantes et avertissements | ❌ ni drapeau par ligne ni repérage IQR / MAD par groupe |
-| Temps en UTC sans inventer de fuseau ; instant mesuré ≠ instant ingéré | ❌ horodatages sans fuseau ; `_ingested_at` non repris au Silver | décision Q-02 |
+| Temps en UTC sans inventer de fuseau ; instant mesuré ≠ instant ingéré | ❌ horodatages sans fuseau ; `_ingested_at` non repris au Silver | Q-02 répondue : tout est en UTC, à déclarer dans les contrats |
 | Imputation : absence expliquée par défaut, `was_missing`, méthode tracée | ✅ aucune imputation | ❌ pas d'indicateur ni de politique déclarée |
 | Journal des transformations ligne à ligne | ❌ | à créer |
 | Contrôles de sortie **bloquants**, rapprochement par lot et par statut | ⚠ cohérence du nombre de lignes écrites | ❌ publication non conditionnée ; pas de rapprochement par `batch_id` |
@@ -47,7 +47,7 @@ au Gold, ajustée sur l'entraînement seulement.
 **Faits mesurés qui orientent le plan** (lots du 26/11/2026, voir le registre) :
 
 - `telemetry` : 0 copie exacte, **1 340 couples (machine, heure) en double** (2 686 lignes, 360
-  jours, 15 machines), valeurs voisines mais différentes : ce sont des **conflits** (Q-01) ;
+  jours, 15 machines), valeurs voisines mais différentes, lignes toujours consécutives : **réémissions** (Q-01 répondue : on garde le second relevé ; ordre et groupes de 3 lignes, Q-20) ;
 - `maintenance` : 115 lignes sur 115 en quarantaine, valeurs `proactive` / `reactive` hors de
   la liste du contrat ; la liste du contrat ne correspondait pas à la contrainte `CHECK` de la
   source : contrat corrigé (0.4.0, Q-03), 0 ligne en quarantaine depuis ;
@@ -64,9 +64,9 @@ générique : groupes, méthodes et seuils vivent dans la configuration et les c
 | 0 | `docs/registre-questions-metier` | registre des questions métier, ce plan | — | fait (à fusionner) |
 | 1 | `feat/bronze-portrait` | indice de confiance par ligne (colonne technique), portrait du Bronze, bilan de réception | Q-19 | à faire |
 | 2 | `contract/silver-v1` | extension du format des contrats | Q-10, Q-12, Q-13 | à faire |
-| 3 | `feat/silver-copies-conflits` | registres des copies et des conflits, rapprochement | Q-01 | à faire |
-| 4 | `feat/silver-qualification` | drapeaux qualité par ligne, suspects par groupe | Q-05, Q-06, Q-08 | à faire |
-| 5 | `feat/silver-temps` | UTC déclaré, instant d'ingestion, colonnes dérivées | Q-02 | à faire |
+| 3 | `feat/silver-copies-conflits` | registres des copies et des conflits, rapprochement | Q-20 (Q-01 répondue) | à faire |
+| 4 | `feat/silver-qualification` | drapeaux qualité par ligne, suspects par `machine_id` (Q-05 répondue) | Q-21, Q-06, Q-08 | à faire |
+| 5 | `feat/silver-temps` | UTC déclaré, instant d'ingestion, colonnes dérivées | — (Q-02 répondue : UTC) | à faire |
 | 6 | `feat/silver-imputation` | indicateurs de manque, politique d'imputation | Q-06, Q-07 | à faire |
 | 7 | `feat/silver-journal-publication` | journal des transformations, publication contrôlée | — | à faire |
 | 8 | `docs/notebook-silver` | journal de bord Silver et graphiques | Q-08 | à faire |
