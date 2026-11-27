@@ -56,4 +56,4 @@ Documents complémentaires déjà présents :
 | Sauvegarde des données sources `datas/` (non versionnées) | dossier d'exploitation | À définir |
 | Contact support / escalade | dossier d'exploitation | À définir |
 | Validation métier des hypothèses de `configs/findings.yaml` | spéc. fonctionnelles | Activées le 21/11/2026, à confirmer avec le métier |
-| Questions métier du passage au Silver (Q-01 à Q-18) | registre des questions métier | Ouvertes au 27/11/2026 |
+| Questions métier du passage au Silver (Q-01 à Q-19) | registre des questions métier | Ouvertes au 27/11/2026, sauf Q-03 (sans objet) et Q-04 (répondue) |

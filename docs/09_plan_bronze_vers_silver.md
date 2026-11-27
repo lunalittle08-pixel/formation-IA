@@ -49,7 +49,8 @@ au Gold, ajustée sur l'entraînement seulement.
 - `telemetry` : 0 copie exacte, **1 340 couples (machine, heure) en double** (2 686 lignes, 360
   jours, 15 machines), valeurs voisines mais différentes : ce sont des **conflits** (Q-01) ;
 - `maintenance` : 115 lignes sur 115 en quarantaine, valeurs `proactive` / `reactive` hors de
-  la liste du contrat (Q-03) ;
+  la liste du contrat ; la liste du contrat ne correspondait pas à la contrainte `CHECK` de la
+  source : contrat corrigé (0.4.0, Q-03), 0 ligne en quarantaine depuis ;
 - `releves_incidents` : 215 incidents sur 1 245 marqués `type_alarme_capteur` (Q-15).
 
 ## 3. Étapes
@@ -60,9 +61,9 @@ générique : groupes, méthodes et seuils vivent dans la configuration et les c
 
 | # | Branche | Objet | Questions bloquantes | Statut |
 |---|---|---|---|---|
-| 0 | `docs/registre-questions-metier` | registre des questions métier, ce plan | — | en cours |
-| 1 | `feat/bronze-portrait` | portrait du Bronze et bilan de réception | Q-04 | à faire |
-| 2 | `contract/silver-v1` | extension du format des contrats | Q-03 | à faire |
+| 0 | `docs/registre-questions-metier` | registre des questions métier, ce plan | — | fait (à fusionner) |
+| 1 | `feat/bronze-portrait` | indice de confiance par ligne (colonne technique), portrait du Bronze, bilan de réception | Q-19 | à faire |
+| 2 | `contract/silver-v1` | extension du format des contrats | Q-10, Q-12, Q-13 | à faire |
 | 3 | `feat/silver-copies-conflits` | registres des copies et des conflits, rapprochement | Q-01 | à faire |
 | 4 | `feat/silver-qualification` | drapeaux qualité par ligne, suspects par groupe | Q-05, Q-06, Q-08 | à faire |
 | 5 | `feat/silver-temps` | UTC déclaré, instant d'ingestion, colonnes dérivées | Q-02 | à faire |
@@ -77,14 +78,21 @@ ou lignes concernées, constat mesuré, `batch_id`, question, impact, interlocut
 bloquée. Il reprend les questions de ce plan et les `TODO` des contrats. Il est mis à jour à
 chaque réponse (date, décision, document ou contrat modifié).
 
-### Étape 1 — Portrait du Bronze et bilan de réception (artefacts 2 et 4)
+### Étape 1 — Indice de confiance, portrait du Bronze et bilan de réception (artefacts 2 et 4)
 
-Commande en lecture seule sur le Bronze (par exemple `indusense portrait`), produisant dans
-`artifacts/ingestion/` :
+**Indice de confiance des manquants (décision Q-04)** : colonne technique de **chaque ligne** du
+Bronze (nom dans `layers.bronze.technical_columns`, comme `_row_hash`), calculée au chargement à
+partir des valeurs d'origine, sans rien modifier à la donnée. Sa définition exacte (colonnes
+prises en compte, jetons d'absence, valeur non convertible) est fixée par Q-19. La structure des
+tables change : rechargement avec `indusense load bronze --rebuild`, écart avec `docs/08`
+documenté, dictionnaire de données (section `transformations`) et tests mis à jour.
+
+Puis une commande en lecture seule sur le Bronze (par exemple `indusense portrait`), produisant
+dans `artifacts/ingestion/` :
 
 - manquants **par colonne, par lot et par valeur d'une colonne de regroupement déclarée**
   (machine pour Indusense), en nombres et en proportions ;
-- indice de complétude par ligne et sa distribution (calculé, non stocké au Bronze : Q-04) ;
+- distribution de l'indice de confiance (colonne technique ci-dessus), par lot et par groupe ;
 - `_row_hash` répétés **dans un lot et entre lots** ; clés en double à contenu divergent ;
 - erreurs de conversion par lot, exemples de textes bruts et types ;
 - bilan de réception : reçu, attendu si déclaré, colonnes inattendues, décision (à étudier ou à
@@ -106,7 +114,7 @@ Clés optionnelles contrôlées par `indusense contract check` :
 - `validated_by`, `open_questions` (renvoi aux `Q-xx`).
 
 Sans réponse métier, la valeur reste `to_decide` et le comportement est le plus conservateur.
-Q-03 (`maintenance_type`) est traitée ici une fois tranchée.
+Les bornes et listes en attente (Q-10, Q-12, Q-13) sont reportées ici une fois tranchées.
 
 ### Étape 3 — Copies et conflits (geste 3)
 
