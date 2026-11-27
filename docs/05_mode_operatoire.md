@@ -172,6 +172,21 @@ précise la zone touchée (`feat(audit)`, `docs(readme)`…).
 
 Ne jamais versionner `datas/` ni de fichier contenant des secrets.
 
+## P10 — Faire évoluer la structure du Bronze (migration)
+
+Déclencheurs : nouveau fichier dans `datas/`, colonne ajoutée ou type changé dans un contrat,
+nouvelle colonne technique. Le chargement refuse alors le lot (« table absente » ou « autre
+structure »).
+
+1. Sur la branche du changement : `uv run indusense db check` (liste des écarts).
+2. `uv run indusense db revision -m "<motif>"` : script généré dans `migrations/versions/`,
+   **non appliqué**. Les opérations destructrices sont signalées.
+3. Relire le script. Une suppression ou un changement de type au Bronze touche des lots déjà
+   chargés : la justifier (message, commit) ou corriger la cause (contrat, fichier).
+4. `uv run indusense db upgrade`, puis `uv run indusense db current` (appliquée = dernière).
+5. `uv run indusense load bronze`, puis commit du script avec le contrat :
+   `feat(bronze): migration <motif>`.
+
 ## P9 — Régénérer les rapports
 
 Les rapports (`identities/`, `audits/`, `validations/`, brouillons) ne sont pas versionnés.

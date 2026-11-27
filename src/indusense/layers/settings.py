@@ -25,6 +25,8 @@ class LayerSettings:
     technical: dict = field(default_factory=lambda: dict(TECHNICAL_DEFAULTS))
     registry_table: str = "ingestion_batches_log"  # bronze : une ligne par tentative de chargement
     max_cast_error_ratio: float = 0.0             # part max de lignes avec >= 1 erreur de conversion
+    migrations_dir: Path = Path("migrations")     # bronze : scripts Alembic (env.py, versions/)
+    version_table: str = "alembic_version"        # bronze : révision appliquée (dans le schéma Bronze)
     pseudonymize_privacy: tuple[str, ...] = ("pseudonymize",)   # silver
     rejects_suffix: str = "_rejects"              # silver : table de quarantaine
     reasons_column: str = "reject_reasons"        # silver : motifs de rejet
@@ -47,6 +49,8 @@ class LayerSettings:
         schemas = g.get("schemas") or {}
         bronze, silver, gold = (g.get(k) or {} for k in ("bronze", "silver", "gold"))
         qdir = Path(gold.get("queries_dir", cls.gold_queries_dir))
+        migrations = bronze.get("migrations") or {}
+        mdir = Path(migrations.get("dir", cls.migrations_dir))
         return cls(
             bronze_schema=schemas.get("bronze", cls.bronze_schema),
             silver_schema=schemas.get("silver", cls.silver_schema),
@@ -55,6 +59,8 @@ class LayerSettings:
             technical={**TECHNICAL_DEFAULTS, **(bronze.get("technical_columns") or {})},
             registry_table=bronze.get("registry_table", cls.registry_table),
             max_cast_error_ratio=float(bronze.get("max_cast_error_ratio", cls.max_cast_error_ratio)),
+            migrations_dir=mdir if mdir.is_absolute() else root / mdir,
+            version_table=migrations.get("version_table", cls.version_table),
             pseudonymize_privacy=tuple(silver.get("pseudonymize_privacy", cls.pseudonymize_privacy)),
             rejects_suffix=silver.get("rejects_suffix", cls.rejects_suffix),
             reasons_column=silver.get("reasons_column", cls.reasons_column),

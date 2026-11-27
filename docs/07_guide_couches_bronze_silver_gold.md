@@ -69,6 +69,7 @@ flowchart LR
 Une commande par couche, ou une seule pour les trois :
 
 ```bash
+uv run indusense db upgrade      # structure des tables Bronze (migrations Alembic, docs/08 §4 bis)
 uv run indusense load bronze     # datas/ -> bronze.*
 uv run indusense load silver     # bronze.* -> silver.* (+ quarantaine, bilans)
 uv run indusense load gold       # configs/gold/*.sql -> gold.*
@@ -1585,6 +1586,7 @@ Résultat attendu : tous les tests passent (`passed`), aucun `failed`.
 Depuis la **racine du projet** (le `.env` y est lu) :
 
 ```bash
+uv run indusense db upgrade      # une fois (et après chaque nouvelle migration) : crée les tables Bronze
 uv run indusense load all
 ```
 
@@ -1768,6 +1770,7 @@ correspond à sa carte d'identité ; pour un fichier en `;` ou en cp1252, il fau
 
 - [ ] `docker compose ps` : `db` est `healthy`
 - [ ] `uv run pytest` : tous les tests passent
+- [ ] `uv run indusense db current` : révision appliquée = dernière
 - [ ] `uv run indusense load all` : code retour 0, aucun jeu « refusé »
 - [ ] Bronze : le nombre de lignes de chaque table correspond à la carte d'identité de sa source
 - [ ] Bronze : chaque colonne source est suivie de sa colonne `_type` ; `hash` est la dernière
@@ -1840,6 +1843,8 @@ git push
 | `Erreur : ANONYMISATION_SALT absent du .env` | Variable vide, ou commande lancée hors de la racine du projet | Vérifiez le `.env` ; lancez la commande depuis le dossier qui contient `.env`. |
 | `WARNING … sel d'exemple de env.sample utilisé` | Le sel n'a pas été remplacé | Générez-en un (partie 3.3). Après un changement de sel, relancez `load all`. |
 | `ERROR … aucun contrat, chargement refusé` | Nouvelle source sans contrat dans `configs/contracts/` | `uv run indusense contract draft`, complétez le brouillon (`pii`/`privacy`, règles), copiez-le dans `configs/contracts/`. |
+| `Erreur : aucune migration …` ou `base à la révision … : … db upgrade` | Migrations non appliquées (ou pas encore générées) | `uv run indusense db upgrade` ; pour un changement de structure, `db revision -m "…"` puis relecture (docs/08 §4 bis). |
+| `… n'existe pas` ou `… existe avec une autre structure` (lot refusé) | Nouveau fichier, contrat modifié : la base ne correspond plus | `uv run indusense db check`, puis `db revision`, relecture, `db upgrade` (docs/05 P10). |
 | `WARNING aucune table dans le schéma bronze` | `load silver` lancé avant `load bronze` | `uv run indusense load bronze`, puis `load silver` (ou `load all`). |
 | Beaucoup de lignes en quarantaine pour une même règle | Données non conformes, **ou** règle du contrat trop stricte ou fausse | Lisez le bilan et `reject_reasons`. Ne modifiez le contrat que sur décision justifiée (commentaire + message de commit), jamais « pour faire passer ». |
 | `ERROR gold … la requête doit commencer par SELECT ou WITH` | Fichier Gold mal formé | Une seule requête de lecture par fichier ; commentaires `--` autorisés. |

@@ -101,9 +101,9 @@ liste `inference.na_tokens`.
 4. **Appliquer le seuil** : au-delà de `max_cast_error_ratio`, le lot est refusé avant toute
    écriture. Un contrat peut fixer sa propre valeur dans `source.max_cast_error_ratio`. Cette
    modification est une décision à justifier, jamais un moyen de faire passer des données.
-5. **Écrire dans une transaction** : création de la table si elle n'existe pas, puis
-   `INSERT ... ON CONFLICT DO NOTHING`. Si la table existe avec une autre structure, le lot est
-   refusé avec la liste des écarts.
+5. **Écrire dans une transaction** : `INSERT ... ON CONFLICT DO NOTHING`. Le chargement ne
+   crée ni ne modifie aucune table : elles sont créées par les migrations (section 4 bis). Si la
+   table est absente ou a une autre structure, le lot est refusé avec la liste des écarts.
 6. **Inscrire le lot au registre**, dans sa propre transaction, pour qu'un échec reste tracé :
    statut (`SUCCESS` ou `FAILED`), lignes lues, insérées et déjà présentes, lignes en erreur de
    conversion, empreinte du fichier, version et empreinte du contrat, message.
@@ -118,19 +118,63 @@ liste `inference.na_tokens`.
 ## 4. Commandes
 
 ```bash
+uv run indusense db upgrade                      # une fois, et après chaque nouvelle migration
 uv run indusense load bronze                     # charge les sources ; rejouer n'insère rien
 uv run indusense --source machine load bronze    # une seule source (option AVANT `load`)
-uv run indusense load bronze --rebuild           # supprime et recrée les tables Bronze
 uv run indusense load all                        # bronze -> silver -> gold
 ```
 
-**Première exécution après la mise à jour.** Si les tables Bronze de l'ancienne version existent
-(colonnes `x_type` et `hash`), le chargement est refusé, avec ce message :
-`bronze.machine existe avec une autre structure (...). Si ce changement est décidé : relancer avec --rebuild`.
-Lancez alors une fois `uv run indusense load bronze --rebuild`, puis `uv run indusense load silver`.
+Le chargement vérifie d'abord que la base est à la dernière migration. Sinon il s'arrête, sans
+rien écrire, et indique la commande à lancer.
 
-`--rebuild` efface les lots déjà chargés. On ne l'utilise que pour un changement de structure
-décidé. Le registre des lots n'est pas effacé.
+---
+
+## 4 bis. Les migrations de schéma (Alembic)
+
+Règle du guide 01 (§1 « DDL revue », étape 4) : **un changement de structure passe par une
+migration Alembic, jamais par un `CREATE TABLE` implicite**. Il n'y a plus d'option `--rebuild`.
+
+**Ce qui est géré.** Le schéma Bronze : une table par jeu de données chargeable, plus le registre
+des lots. La révision appliquée est rangée dans `bronze.alembic_version`. Le Silver et le Gold
+ne sont pas concernés : ils sont recalculés entièrement à chaque exécution, à partir du Bronze.
+
+**La structure attendue n'est écrite nulle part à la main.** Elle est calculée à partir des
+contrats et des fichiers réels de `datas/`, par les mêmes fonctions que le chargement
+(`layers/migrate.py` → `stage.bronze_table`). Ajouter un fichier, une colonne ou changer un type
+dans un contrat produit donc un écart, que la migration montre.
+
+**Le cycle** :
+
+```bash
+uv run indusense db check                              # 1. comparer : écarts base / attendu
+uv run indusense db revision -m "motif du changement"  # 2. GÉNÉRER le script (non appliqué)
+#                                                         3. RELIRE migrations/versions/<script>.py
+uv run indusense db upgrade                            # 4. appliquer
+uv run indusense db current                            # révision appliquée / dernière
+uv run indusense db downgrade -1                       # annuler la dernière migration
+```
+
+- `revision` ne crée pas de script vide : sans écart, il le dit et s'arrête.
+- `revision` **signale les opérations destructrices** (suppression de table, de colonne ou de
+  contrainte, changement de type) : au Bronze, une suppression perd des lots chargés. On les
+  relit avant `upgrade`, et on les justifie dans le message et dans le commit.
+- Un script est un fichier versionné (`migrations/versions/`), relu comme du code, commité sur la
+  branche du changement.
+- Limite d'Alembic : un changement de **clé primaire** n'est pas détecté. Il faut l'écrire à la
+  main dans le script.
+- `alembic.ini` ne contient aucun identifiant : la connexion vient du `.env`. On peut aussi
+  appeler `uv run alembic ...` directement (option `-x config=chemin/pipeline.yaml`).
+
+**Exemple, changement de type dans un contrat** (`is_active` : `BOOLEAN` → `TEXT`) :
+`db revision` produit un `op.alter_column(..., type_=sa.Text())`, le signale comme opération à
+relire, et met à jour le commentaire de la table (`contrat v1.1.0`).
+
+**Mise en place sur la base existante (2026-11-27).** Les tables Bronze existaient déjà. La
+migration initiale a été générée contre une base vide temporaire, pour qu'elle crée vraiment
+toutes les tables. La base de développement a ensuite été marquée à cette révision
+(`alembic stamp`, sans DDL). Une seconde migration a mis à jour le commentaire de
+`bronze.maintenance` (contrat v0.3.0 → v0.4.0). Une nouvelle base se construit avec
+`uv run indusense db upgrade`.
 
 ---
 
@@ -202,9 +246,13 @@ d'habilitation.
 | Bronze → Silver → Gold dans PostgreSQL ; NULL typé ⟺ source vide | `test_bout_en_bout_postgresql` |
 | Rejeu sans doublon ; registre | `test_rejeu_sans_doublon_et_registre` |
 | Seuil dépassé → rien n'est écrit, échec au registre | `test_seuil_d_erreurs_de_conversion_annule_le_lot` |
+| Opérations destructrices signalées ; seul le schéma Bronze est comparé | `test_operations_destructrices_signalees`, `test_seul_le_schema_bronze_est_compare` |
+| Chargement refusé tant que la migration n'est pas appliquée ; rien n'est créé | `test_chargement_refuse_sans_migration_appliquee` |
+| Migration initiale, aucun script vide, évolution du contrat détectée et signalée | `test_migration_initiale_puis_evolution_du_contrat` |
 
-Les trois derniers tests demandent une base de test (`INDUSENSE_TEST_DB_URL`). Ils écrivent dans
-des schémas `*_test`.
+Les tests sur PostgreSQL demandent une base de test (`INDUSENSE_TEST_DB_URL`). Ils écrivent
+dans des schémas `*_test` et créent leurs tables comme en vrai : migration générée dans le
+mini-projet, puis appliquée.
 
 ---
 
@@ -212,8 +260,6 @@ des schémas `*_test`.
 
 **Bronze**
 
-- Migrations de schéma avec **Alembic**. Aujourd'hui, un changement de structure est refusé ou
-  forcé avec `--rebuild`, mais il n'existe pas de script de migration revu.
 - **Horloge déclarée** (`timezone: UTC` dans le contrat, étiquetée et jamais convertie). Elle
   n'est pas encore dans nos contrats.
 - **Unités** obligatoires pour les colonnes numériques.

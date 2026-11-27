@@ -23,8 +23,9 @@ maintenance prédictive (pannes machines). Sprint 1 : fiabiliser les données (C
 uv sync                            # installe les dépendances
 uv run indusense run               # identity + audit + draft + validate
 uv run indusense contract check    # structure des contrats
-uv run indusense load all          # bronze -> silver -> gold dans PostgreSQL (docker compose + .env)
-uv run indusense load bronze --rebuild   # recrée les tables Bronze (changement de structure décidé)
+uv run indusense db upgrade               # applique les migrations Alembic du Bronze (relues)
+uv run indusense db revision -m "motif"   # génère (sans appliquer) la migration d'un changement de structure
+uv run indusense load all                 # bronze -> silver -> gold dans PostgreSQL (docker compose + .env)
 uv run pytest                      # tests
 ```
 
@@ -42,6 +43,9 @@ uv run pytest                      # tests
 - Bronze (consignes du formateur, `docs/08_bronze_contrat_v2.md`) : `x_raw` intact + `x` typé au
   mieux + `_cast_errors` ; colonnes techniques ; clé primaire `(_source_hash, _row_number)` ;
   registre des lots. Aucune transformation : la pseudonymisation (ANO) se fait au Silver.
+- Structure du Bronze : uniquement par migration Alembic (`migrations/versions/`), générée,
+  relue (opérations destructrices signalées), puis appliquée. Jamais de CREATE TABLE implicite
+  au chargement ; le Silver et le Gold sont recalculés et hors migrations.
 - Silver : guide 02 du formateur (ordre fusion → dédoublonnage → anonymisation → normalisation →
   imputation → marquage des aberrants). Les aberrants sont marqués, jamais supprimés ni bornés.
 - Données personnelles (noms, badges, texte libre) : signaler et proposer une décision de minimisation.

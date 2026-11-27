@@ -3,7 +3,7 @@ apiVersion: indusense/v1
 kind: DataContract
 contract:
   id: maintenance
-  version: 0.3.0
+  version: 0.4.0
   status: draft
   owner: "TODO: maintenance"
   description: Interventions préventives et correctives réalisées sur les machines.
@@ -22,7 +22,10 @@ schema:
        references: machine.machine_code, declared_type: VARCHAR(16), description: Machine concernée}
     - {name: maintenance_at, type: DATETIME, required: true, declared_type: TIMESTAMPTZ,
        description: "Début de l'intervention (avec fuseau, converti en UTC)"}
-    - {name: maintenance_type, type: CATEGORY, required: true, allowed_values: [preventive, corrective],
+    # Liste alignée sur la contrainte de la source (datas/machine.sql, CREATE TABLE maintenance :
+    # CHECK (maintenance_type IN ('proactive','reactive'))). L'ancienne liste [preventive, corrective]
+    # n'avait pas été vérifiée contre la source (registre Q-03, 27/11/2026).
+    - {name: maintenance_type, type: CATEGORY, required: true, allowed_values: [proactive, reactive],
        declared_type: VARCHAR(16), description: Nature de l'intervention}
     - {name: action_type, type: CATEGORY, declared_type: VARCHAR(32), description: Action réalisée}
     - {name: component, type: CATEGORY, declared_type: VARCHAR(64), description: Composant concerné}

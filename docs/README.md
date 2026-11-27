@@ -16,6 +16,8 @@ s'accompagne de la mise à jour du document concerné, dans la même branche.
 | [Dossier d'exploitation](06_dossier_exploitation.md) | personne qui installe et fait tourner le pipeline | environnement, installation, exécution, codes retour, journaux, sauvegarde, incidents |
 | [Guide des couches Bronze / Silver / Gold](07_guide_couches_bronze_silver_gold.md) | apprenant, développeur | PostgreSQL sous Docker, `.env`, pseudonymisation, empreinte de ligne, typage et quarantaine Silver, requêtes Gold, commande `indusense load` |
 | [Bronze v2 : consignes du formateur](08_bronze_contrat_v2.md) | apprenant, développeur, évaluateur | `x_raw` + `x` typé, `_cast_errors`, colonnes techniques, rejeu sans doublon, registre des lots, contrôles contrat/fichier, dictionnaire de données, pseudonymisation au Silver (remplace la partie Bronze du guide 07) |
+| [Plan Bronze → Silver](09_plan_bronze_vers_silver.md) | apprenant, développeur, formateur | consignes du guide 14, écarts constatés, étapes de déploiement du Silver et leur statut |
+| [Registre des questions métier](10_registre_questions_metier.md) | référent métier, formateur, développeur | questions ouvertes (constat, lot, impact, interlocuteur, étape bloquée) et décisions prises |
 
 Documents complémentaires déjà présents :
 
@@ -54,3 +56,4 @@ Documents complémentaires déjà présents :
 | Sauvegarde des données sources `datas/` (non versionnées) | dossier d'exploitation | À définir |
 | Contact support / escalade | dossier d'exploitation | À définir |
 | Validation métier des hypothèses de `configs/findings.yaml` | spéc. fonctionnelles | Activées le 21/11/2026, à confirmer avec le métier |
+| Questions métier du passage au Silver (Q-01 à Q-19) | registre des questions métier | Ouvertes au 27/11/2026, sauf Q-03 (sans objet) et Q-04 (répondue) |

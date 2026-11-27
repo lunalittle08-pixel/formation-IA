@@ -38,7 +38,9 @@ uv run pytest                         # tests
 | `uv run indusense contract check` | Structure des contrats | console (code retour 1 si invalide) |
 | `uv run indusense validate` | Données vs contrats (attendu) | `validations/AAAAMMJJ/validation_*.md/.json` |
 | `uv run indusense run` | Tout | + `runs/<run_id>/manifest.json` |
-| `uv run indusense load bronze\|silver\|gold\|all` | Chargement des couches médaillon dans PostgreSQL (à part : nécessite la base et le `.env`). Rejouer n'insère rien ; `--rebuild` recrée les tables Bronze | tables `bronze.*` (+ `bronze.ingestion_batches_log`), `silver.*` (+ `*_rejects`), `gold.*` ; dictionnaires `layers/AAAAMMJJ/bronze_<jeu>_HHMMSS.md`, bilans `silver_<jeu>_HHMMSS.md` |
+| `uv run indusense load bronze\|silver\|gold\|all` | Chargement des couches médaillon dans PostgreSQL (à part : nécessite la base et le `.env`). Rejouer n'insère rien. Refusé si la base n'est pas à la dernière migration | tables `bronze.*` (+ `bronze.ingestion_batches_log`), `silver.*` (+ `*_rejects`), `gold.*` ; dictionnaires `layers/AAAAMMJJ/bronze_<jeu>_HHMMSS.md`, bilans `silver_<jeu>_HHMMSS.md` |
+| `uv run indusense db revision -m "<motif>"` | Génère (sans l'appliquer) la migration Alembic qui amène le Bronze à la structure attendue (contrats + fichiers) ; signale les opérations destructrices | `migrations/versions/<date>_<rev>_<motif>.py` (à relire, versionné) |
+| `uv run indusense db upgrade\|downgrade <rev>\|current\|check` | Applique / annule les migrations ; révision appliquée ; écarts restants (code retour 1 s'il y en a) | table `bronze.alembic_version` |
 
 Option `--source <id>` (répétable) pour ne traiter qu'une partie des sources. L'identifiant
 d'une source est le nom de son fichier sans extension (`telemetry.csv` → `telemetry`,
@@ -160,6 +162,7 @@ indusense/
 │   │   ├── silver.py                   #   typage et contrôles du contrat, quarantaine
 │   │   ├── gold.py                     #   requêtes configs/gold/*.sql
 │   │   ├── database.py                 #   .env, connexion, chargement des tables
+│   │   ├── migrate.py                  #   migrations Alembic du Bronze (structure attendue, cycle)
 │   │   └── stage.py                    #   orchestration bronze -> silver -> gold
 │   ├── reporting/markdown.py           # rendu des cartes, audits, validations
 │   ├── pipeline.py                     # orchestration des étapes + manifeste
@@ -169,6 +172,8 @@ indusense/
 │   ├── identities/  audits/  validations/
 │   ├── contracts/drafts/
 │   └── runs/<run_id>/manifest.json
+├── migrations/                         # Alembic : env.py, gabarit, versions/ (scripts relus)
+├── alembic.ini                         # sans identifiant : la connexion vient du .env
 ├── pyproject.toml
 └── .gitignore
 ```

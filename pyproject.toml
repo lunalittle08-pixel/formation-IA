@@ -5,6 +5,7 @@ description = "InduSense 4.0 — pipeline d'ingestion : cartes d'identité, audi
 readme = "README.md"
 requires-python = ">=3.13"
 dependencies = [
+    "alembic>=1.16",
     "pandas>=3.1",     # wheels CPython 3.15 disponibles à partir de 3.1
     "psycopg[binary]>=3.3.9",
     "pydantic-settings>=2.16.3",

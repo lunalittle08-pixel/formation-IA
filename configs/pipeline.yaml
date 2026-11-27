@@ -93,6 +93,12 @@ layers:
       row_hash: _row_hash         # SHA-256 des valeurs d'origine de la ligne (doublons stricts)
       cast_errors: _cast_errors   # JSONB {colonne: motif} ; {} si tout est convertible
     registry_table: ingestion_batches_log   # une ligne par tentative de chargement
+    # Structure des tables Bronze (et du registre) : gérée par des migrations Alembic, générées
+    # depuis les contrats et les fichiers réels, relues, puis appliquées (`indusense db ...`).
+    # Le chargement ne crée ni ne modifie aucune table.
+    migrations:
+      dir: migrations                 # env.py + versions/ (scripts revus et versionnés)
+      version_table: alembic_version  # révision appliquée, rangée dans le schéma Bronze
     # Part maximale de lignes avec au moins une erreur de conversion. Au-delà, le lot est
     # annulé (rien n'est écrit) et l'échec est inscrit au registre. Un contrat peut fixer
     # sa propre valeur dans `source.max_cast_error_ratio` (décision tracée dans le contrat).

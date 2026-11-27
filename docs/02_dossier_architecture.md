@@ -94,6 +94,7 @@ flowchart TD
 | `reporting/markdown.py` | rendu Markdown des cartes, audits, cartographie, validation | aucun calcul |
 | `pipeline.py` | enchaîne les étapes, écrit les artefacts horodatés et le manifeste | — |
 | `cli.py` | arguments de la commande, codes retour | — |
+| `layers/migrate.py` | migrations Alembic du Bronze : structure attendue calculée depuis les contrats et les fichiers, génération (opérations destructrices signalées), application, vérification | aucune migration appliquée sans commande explicite ; le chargement ne crée aucune table |
 
 Le point de passage commun est l'objet **`Dataset`** (identifiant, `DataFrame` de textes,
 table SQL éventuelle, types SQL déclarés) : un fichier CSV en donne un, un script SQL en donne
@@ -142,6 +143,8 @@ sequenceDiagram
 | `pandas` ≥ 3.1 | manipulation des colonnes, statistiques |
 | `pyyaml` ≥ 6.0 | configuration, contrats, règles de constats |
 | `sqlglot` ≥ 27 | analyse des scripts SQL |
+| `sqlalchemy` ≥ 2.1, `psycopg` ≥ 3.3 | description des tables et dialogue avec PostgreSQL (couches) |
+| `alembic` ≥ 1.16 | migrations de schéma du Bronze (`indusense db ...`) |
 | `pytest` ≥ 8, `ipykernel` (développement) | tests, notebook |
 
 Versions exactes figées dans `uv.lock`. Construction du package : `hatchling`.
