@@ -14,6 +14,8 @@ import hmac
 
 import pandas as pd
 
+from indusense.contracts.model import PRIVACY_UNDECIDED
+
 
 def pseudonymize(value: str, salt: str) -> str:
     """Empreinte HMAC-SHA256 (64 caractères hexadécimaux) d'une valeur ; vide reste vide."""
@@ -34,7 +36,10 @@ def columns_to_pseudonymize(contract: dict, privacy_actions: tuple[str, ...]) ->
             if c.get("pii") and c.get("privacy") in privacy_actions]
 
 
-def undecided_pii_columns(contract: dict, privacy_actions: tuple[str, ...]) -> list[str]:
-    """Colonnes personnelles qui resteront en clair : à signaler, la décision reste humaine."""
+def undecided_pii_columns(contract: dict) -> list[str]:
+    """Colonnes personnelles sans décision de protection (`privacy` absent ou `to_decide`).
+
+    `keep` est une décision (garder en clair, tracée dans le contrat) : elle n'est pas signalée.
+    """
     return [c["name"] for c in contract.get("schema", {}).get("columns", [])
-            if c.get("pii") and c.get("privacy") not in privacy_actions]
+            if c.get("pii") and c.get("privacy", PRIVACY_UNDECIDED) == PRIVACY_UNDECIDED]

@@ -59,10 +59,12 @@ def test_colonnes_a_pseudonymiser_selon_le_contrat():
         {"name": "nom", "pii": True, "privacy": "drop"},
         {"name": "badge", "pii": True, "privacy": "pseudonymize"},
         {"name": "commentaire", "pii": True, "privacy": "to_decide"},
+        {"name": "remarque", "pii": True, "privacy": "keep"},        # décision : garder en clair
+        {"name": "note", "pii": True},                               # privacy absent : à décider
         {"name": "mesure"}]}}
     actions = ("pseudonymize", "drop")
     assert columns_to_pseudonymize(contract, actions) == ["nom", "badge"]
-    assert undecided_pii_columns(contract, actions) == ["commentaire"]
+    assert undecided_pii_columns(contract) == ["commentaire", "note"]
 
 
 # ------------------------------------------------------------------ bronze

@@ -185,7 +185,7 @@ def load_bronze(run: Run, engine: Engine, cfg: LayerSettings, contracts: dict,
     refused = run.summary.setdefault("refused", [])
     for ds, profile, contract, path, source_hash in loadable_datasets(loaded, contracts,
                                                                        run.settings, cfg, refused):
-        for col in undecided_pii_columns(contract, cfg.pseudonymize_privacy + ("drop",)):
+        for col in undecided_pii_columns(contract):
             log.warning("%s.%s : donnée personnelle sans décision de protection (privacy à "
                         "trancher) ; elle restera en clair au Silver", ds.id, col)
         entry = load_one_bronze(engine, ds, contract, profile, path, source_hash, run, cfg)
