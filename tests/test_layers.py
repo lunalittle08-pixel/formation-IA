@@ -3,13 +3,16 @@
 Les tests de construction (Bronze, Silver, requêtes Gold) n'ont pas besoin de base de données.
 Le test de bout en bout s'exécute seulement si INDUSENSE_TEST_DB_URL est défini, par exemple :
     INDUSENSE_TEST_DB_URL=postgresql+psycopg://indusense_user:<mdp>@127.0.0.1:5434/indusense_db
-Il écrit dans des schémas *_test : les vraies tables ne sont jamais touchées.
+Il écrit dans des schémas *_test : les vraies tables ne sont jamais touchées. Les tables y sont
+créées comme en vrai : migration Alembic générée (dans le mini-projet), puis appliquée.
 """
 from __future__ import annotations
 
 import os
+import shutil
 import uuid
 from datetime import UTC, datetime, time
+from pathlib import Path
 
 import pandas as pd
 import pytest
@@ -33,6 +36,8 @@ from indusense.layers.checks import bronze_issues
 from indusense.layers.gold import query_errors, strip_sql
 from indusense.layers.settings import LayerSettings
 from indusense.layers.silver import build_silver
+
+ROOT = Path(__file__).resolve().parents[1]
 
 CFG = LayerSettings(pseudonymize_privacy=("pseudonymize", "drop"))
 SALT = "sel-de-test"
@@ -261,8 +266,21 @@ def db(settings):
                                           "gold": "gold_test"}}
     contracts = settings.root / "configs" / "contracts"
     (contracts / "machine.yaml").write_text(yaml.safe_dump(E2E_MACHINE), encoding="utf-8")
+    migrations = settings.root / "migrations"
+    (migrations / "versions").mkdir(parents=True)
+    for name in ("env.py", "script.py.mako"):
+        shutil.copy(ROOT / "migrations" / name, migrations / name)
     env = EnvSettings(database_url=url, anonymisation_salt=SALT, _env_file=None)
     return settings, env, engine
+
+
+def migrated(settings, engine, message="structure"):
+    """Génère puis applique la migration du mini-projet (cycle réel : revision -> upgrade)."""
+    from indusense.layers import migrate
+
+    result = migrate.revision(settings, message, engine)
+    migrate.upgrade(settings, engine=engine)
+    return result
 
 
 @pytest.mark.skipif(not os.environ.get("INDUSENSE_TEST_DB_URL"), reason="pas de base de test")
@@ -274,6 +292,7 @@ def test_bout_en_bout_postgresql(db):
     gold_dir.mkdir()
     (gold_dir / "machines_actives.sql").write_text(
         "SELECT machine_code FROM silver_test.machine WHERE is_active", encoding="utf-8")
+    migrated(settings, engine)
     run = run_layers(settings, ["bronze", "silver", "gold"], env=env, engine=engine)
 
     # sans contrat correspondant, le fichier d'incidents est refusé (aucune table écrite)
@@ -296,6 +315,7 @@ def test_rejeu_sans_doublon_et_registre(db):
     from indusense.layers.stage import run_layers
 
     settings, env, engine = db
+    migrated(settings, engine)
     run_layers(settings, ["bronze"], ["machine"], env=env, engine=engine)
     run = run_layers(settings, ["bronze"], ["machine"], env=env, engine=engine)
     assert run.summary["bronze"]["machine"]["records_inserted"] == 0
@@ -317,11 +337,76 @@ def test_seuil_d_erreurs_de_conversion_annule_le_lot(db):
     contract["schema"]["columns"][0]["type"] = "INTEGER"    # 'MACH-01' n'est pas un entier
     (settings.root / "configs" / "contracts" / "machine.yaml").write_text(
         yaml.safe_dump(contract), encoding="utf-8")
+    migrated(settings, engine)
     run = run_layers(settings, ["bronze"], ["machine"], env=env, engine=engine)
 
     assert run.summary["bronze"]["machine"]["status"] == "FAILED"
     assert "bronze.machine" in run.summary["refused"]
-    from sqlalchemy import inspect
-    assert not inspect(engine).has_table("machine", schema="bronze_test")   # rien n'est écrit
+    assert pd.read_sql_table("machine", engine, schema="bronze_test").empty   # rien n'est écrit
     log = pd.read_sql_table("ingestion_batches_log", engine, schema="bronze_test")
     assert log["status"].tolist() == ["FAILED"] and "seuil" in log["message"].iloc[0]
+
+
+# ------------------------------------------------------------------ migrations (Alembic)
+def test_operations_destructrices_signalees():
+    from alembic.operations import ops
+
+    from indusense.layers.migrate import destructive_operations
+
+    upgrade = ops.UpgradeOps(ops=[
+        ops.ModifyTableOps("machine", [ops.DropColumnOp("machine", "model", schema="bronze"),
+                                       ops.AddColumnOp("machine", None, schema="bronze")],
+                           schema="bronze"),
+        ops.DropTableOp("ancienne", schema="bronze")])
+    found = destructive_operations(upgrade)
+    assert found == ["DropColumnOp machine model", "DropTableOp ancienne"]   # l'ajout n'y est pas
+
+
+def test_seul_le_schema_bronze_est_compare():
+    from indusense.layers.migrate import only_schema
+
+    include = only_schema("bronze")
+    assert include("bronze", "schema", {})
+    assert not include("silver", "schema", {}) and not include(None, "schema", {})
+
+
+@pytest.mark.skipif(not os.environ.get("INDUSENSE_TEST_DB_URL"), reason="pas de base de test")
+def test_chargement_refuse_sans_migration_appliquee(db):
+    from indusense.layers import migrate
+    from indusense.layers.stage import LayerError, run_layers
+
+    settings, env, engine = db
+    with pytest.raises(LayerError, match="aucune migration"):
+        run_layers(settings, ["bronze"], ["machine"], env=env, engine=engine)
+    migrate.revision(settings, "structure", engine)           # générée mais pas appliquée
+    with pytest.raises(LayerError, match="db upgrade"):
+        run_layers(settings, ["bronze"], ["machine"], env=env, engine=engine)
+    from sqlalchemy import inspect
+    assert not inspect(engine).has_table("machine", schema="bronze_test")   # rien de créé
+
+
+@pytest.mark.skipif(not os.environ.get("INDUSENSE_TEST_DB_URL"), reason="pas de base de test")
+def test_migration_initiale_puis_evolution_du_contrat(db):
+    import yaml
+
+    from indusense.layers import migrate
+
+    settings, env, engine = db
+    first = migrated(settings, engine, "initiale")
+    assert first["path"] is not None and first["destructive"] == []
+    assert migrate.differences(settings, engine) == []
+    assert migrate.revision(settings, "rien", engine)["path"] is None   # aucun écart, aucun script
+
+    # le type d'une colonne change dans le contrat : la migration le montre et le signale
+    contract = dict(E2E_MACHINE, schema=dict(E2E_MACHINE["schema"]))
+    contract["schema"]["columns"] = [dict(c) for c in E2E_MACHINE["schema"]["columns"]]
+    contract["schema"]["columns"][1]["type"] = "TEXT"      # is_active : BOOLEAN -> TEXT
+    contract["contract"] = dict(E2E_MACHINE["contract"], version="1.1.0")
+    (settings.root / "configs" / "contracts" / "machine.yaml").write_text(
+        yaml.safe_dump(contract), encoding="utf-8")
+    second = migrate.revision(settings, "is_active en texte", engine)
+    script = second["path"].read_text(encoding="utf-8")
+    assert "alter_column" in script and "contrat v1.1.0" in script
+    assert any("is_active" in op for op in second["destructive"])
+    migrate.upgrade(settings, engine=engine)
+    assert migrate.differences(settings, engine) == []

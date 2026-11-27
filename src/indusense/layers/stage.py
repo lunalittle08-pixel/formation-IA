@@ -15,20 +15,21 @@ import uuid
 from datetime import UTC, datetime
 from pathlib import Path
 
-from sqlalchemy import Engine
+from sqlalchemy import Engine, MetaData, Table
 
 from indusense.config import Settings, all_sources
 from indusense.contracts.model import load_contracts
 from indusense.io.files import sha256
 from indusense.layers.anonymize import undecided_pii_columns
-from indusense.layers.bronze import BatchMeta, build_bronze_frame
+from indusense.layers.bronze import BatchMeta, BronzeFrame, build_bronze_frame
 from indusense.layers.checks import bronze_issues
 from indusense.layers.database import (
     SAMPLE_SALT,
+    MIGRATION_HINT,
     EnvSettings,
     SchemaMismatch,
+    check_table,
     create_table_as,
-    ensure_table,
     insert_new_rows,
     keyed_table,
     list_tables,
@@ -46,6 +47,7 @@ from indusense.layers.dictionary import (
     transformations,
 )
 from indusense.layers.gold import gold_queries, query_errors, strip_sql
+from indusense.layers.migrate import MigrationError, schema_status
 from indusense.layers.settings import LayerSettings
 from indusense.layers.silver import build_silver, render_report
 from indusense.pipeline import Run, load_and_profile, write_manifest
@@ -89,8 +91,48 @@ def _types(ds, contract: dict, profile) -> dict[str, str]:
     return {name: declared.get(name, inferred.get(name, "TEXT")) for name in ds.df.columns}
 
 
+def bronze_frame(ds, contract: dict, profile, meta: BatchMeta, settings: Settings,
+                 cfg: LayerSettings) -> BronzeFrame:
+    """Table Bronze en mémoire d'un jeu de données (types : contrat, sinon inférés)."""
+    declared_sql = {c["name"]: c.get("declared_type") for c in contract["schema"]["columns"]}
+    return build_bronze_frame(ds.df, _types(ds, contract, profile), meta, cfg,
+                              settings.inference.parse_rate_min, declared_sql)
+
+
+def bronze_table(dataset_id: str, bf: BronzeFrame, contract: dict, source: str,
+                 cfg: LayerSettings, metadata: MetaData | None = None) -> Table:
+    """Description SQLAlchemy de la table Bronze : la même pour le chargement et les migrations."""
+    version = contract["contract"].get("version")
+    return keyed_table(dataset_id, bf.sql_types, cfg.lineage, cfg.bronze_schema,
+                       f"Bronze {dataset_id} | source {source} | contrat v{version}", metadata)
+
+
+def loadable_datasets(loaded: list, contracts: dict, settings: Settings, cfg: LayerSettings,
+                      refused: list | None = None):
+    """Jeux de données dont le contrat est confronté sans erreur au fichier réel.
+
+    Produit (jeu, profil, contrat, chemin de la source, empreinte). Les refusés sont journalisés
+    et ajoutés à `refused` (« bronze.<jeu> »).
+    """
+    for ls in loaded:
+        for ds, profile in zip(ls.src.datasets, ls.profiles):
+            source = _relative(ls.src.spec.path, settings.root)
+            label = f"{source}:{ds.table}" if ds.table else source
+            contract = contracts.get(ds.id)
+            errors, warnings = bronze_issues(ds, contract, label, cfg)
+            for w in warnings:
+                log.warning("%s : %s", ds.id, w)
+            if errors:                            # contrat contre fichier réel : rien n'est écrit
+                for e in errors:
+                    log.error("%s : %s", ds.id, e)
+                if refused is not None:
+                    refused.append(f"bronze.{ds.id}")
+                continue
+            yield ds, profile, contract, ls.src.spec.path, ls.src.sha256
+
+
 def load_one_bronze(engine: Engine, ds, contract: dict, profile, source_path: Path,
-                    source_hash: str, run: Run, cfg: LayerSettings, rebuild: bool) -> dict:
+                    source_hash: str, run: Run, cfg: LayerSettings) -> dict:
     """Charge un jeu de données au Bronze ; renvoie la ligne du registre (statut compris)."""
     started = datetime.now(UTC)
     source = _relative(source_path, run.settings.root)
@@ -100,20 +142,17 @@ def load_one_bronze(engine: Engine, ds, contract: dict, profile, source_path: Pa
              "records_read": len(ds.df), "records_inserted": 0, "records_already_present": 0,
              "rows_with_cast_errors": 0, "status": "FAILED", "message": None, "started_at": started}
     meta = BatchMeta(entry["batch_id"], source, source_hash, started)
-    declared_sql = {c["name"]: c.get("declared_type") for c in contract["schema"]["columns"]}
-    bf = build_bronze_frame(ds.df, _types(ds, contract, profile), meta, cfg,
-                            run.settings.inference.parse_rate_min, declared_sql)
+    bf = bronze_frame(ds, contract, profile, meta, run.settings, cfg)
     entry["rows_with_cast_errors"] = bf.rows_with_cast_errors
     limit = _cast_ratio_limit(contract, cfg)
     ratio = bf.rows_with_cast_errors / len(ds.df) if len(ds.df) else 0.0
-    table = keyed_table(ds.id, bf.sql_types, cfg.lineage, cfg.bronze_schema,
-                        f"Bronze {ds.id} | source {source} | contrat v{entry['contract_version']}")
+    table = bronze_table(ds.id, bf, contract, source, cfg)
     try:
         if ratio > limit:
             raise CastThresholdExceeded(f"{bf.rows_with_cast_errors} lignes avec erreur de conversion "
                                         f"({ratio:.2%}) > seuil {limit:.2%} : rien n'est écrit")
         with engine.begin() as conn:            # une transaction : tout le lot ou rien
-            ensure_table(conn, table, rebuild)
+            check_table(conn, table)            # structure : migrations, jamais ici
             inserted = insert_new_rows(conn, table, bf.frame, cfg.chunk_size)
         entry.update(records_inserted=inserted, records_already_present=len(ds.df) - inserted,
                      status="SUCCESS")
@@ -139,47 +178,50 @@ def _write_dictionary(run: Run, dataset_id: str, bf, contract: dict, entry: dict
 
 
 def load_bronze(run: Run, engine: Engine, cfg: LayerSettings, contracts: dict,
-                source_ids: list[str] | None, rebuild: bool = False) -> list:
+                source_ids: list[str] | None) -> list:
     specs = [s for s in all_sources(run.settings) if not source_ids or s.id in source_ids]
     loaded = load_and_profile(specs, run.settings, contracts)
     summary = run.summary.setdefault("bronze", {})
-    for ls in loaded:
-        for ds, profile in zip(ls.src.datasets, ls.profiles):
-            source = _relative(ls.src.spec.path, run.settings.root)
-            label = f"{source}:{ds.table}" if ds.table else source
-            contract = contracts.get(ds.id)
-            errors, warnings = bronze_issues(ds, contract, label, cfg)
-            for w in warnings:
-                log.warning("%s : %s", ds.id, w)
-            if errors:                            # contrat contre fichier réel : rien n'est écrit
-                for e in errors:
-                    log.error("%s : %s", ds.id, e)
-                run.summary.setdefault("refused", []).append(f"bronze.{ds.id}")
-                continue
-            for col in undecided_pii_columns(contract, cfg.pseudonymize_privacy + ("drop",)):
-                log.warning("%s.%s : donnée personnelle sans décision de protection (privacy à "
-                            "trancher) ; elle restera en clair au Silver", ds.id, col)
-            entry = load_one_bronze(engine, ds, contract, profile, ls.src.spec.path,
-                                    ls.src.sha256, run, cfg, rebuild)
-            if entry["status"] != "SUCCESS":
-                log.error("%s : lot %s refusé — %s", ds.id, entry["batch_id"], entry["message"])
-                run.summary.setdefault("refused", []).append(f"bronze.{ds.id}")
-            else:
-                log.info("%s.%s : %d lues, %d insérées, %d déjà présentes, %d avec erreur de conversion",
-                         cfg.bronze_schema, ds.id, entry["records_read"], entry["records_inserted"],
-                         entry["records_already_present"], entry["rows_with_cast_errors"])
-                run.outputs.append(f"postgresql:{cfg.bronze_schema}.{ds.id}")
-            summary[ds.id] = {k: entry[k] for k in ("status", "records_read", "records_inserted",
-                                                    "records_already_present", "rows_with_cast_errors")}
-            summary[ds.id]["batch_id"] = str(entry["batch_id"])
+    refused = run.summary.setdefault("refused", [])
+    for ds, profile, contract, path, source_hash in loadable_datasets(loaded, contracts,
+                                                                       run.settings, cfg, refused):
+        for col in undecided_pii_columns(contract, cfg.pseudonymize_privacy + ("drop",)):
+            log.warning("%s.%s : donnée personnelle sans décision de protection (privacy à "
+                        "trancher) ; elle restera en clair au Silver", ds.id, col)
+        entry = load_one_bronze(engine, ds, contract, profile, path, source_hash, run, cfg)
+        if entry["status"] != "SUCCESS":
+            log.error("%s : lot %s refusé — %s", ds.id, entry["batch_id"], entry["message"])
+            refused.append(f"bronze.{ds.id}")
+        else:
+            log.info("%s.%s : %d lues, %d insérées, %d déjà présentes, %d avec erreur de conversion",
+                     cfg.bronze_schema, ds.id, entry["records_read"], entry["records_inserted"],
+                     entry["records_already_present"], entry["rows_with_cast_errors"])
+            run.outputs.append(f"postgresql:{cfg.bronze_schema}.{ds.id}")
+        summary[ds.id] = {k: entry[k] for k in ("status", "records_read", "records_inserted",
+                                                "records_already_present", "rows_with_cast_errors")}
+        summary[ds.id]["batch_id"] = str(entry["batch_id"])
     return loaded
+
+
+def require_migrated(engine: Engine, settings: Settings, cfg: LayerSettings) -> None:
+    """Refuse le chargement si la base n'est pas à la dernière migration (rien n'est créé ici)."""
+    try:
+        applied, heads = schema_status(engine, settings, cfg)
+    except MigrationError as e:
+        raise LayerError(str(e)) from e
+    if not heads:
+        raise LayerError(f"aucune migration dans {cfg.migrations_dir} : {MIGRATION_HINT}")
+    if applied != heads:
+        raise LayerError(f"base à la révision {sorted(applied) or 'aucune'}, migrations à "
+                         f"{sorted(heads)} : relire puis appliquer (uv run indusense db upgrade)")
 
 
 # ------------------------------------------------------------------ silver
 def load_silver(run: Run, engine: Engine, cfg: LayerSettings, contracts: dict,
                 dataset_ids: list[str] | None, salt: str) -> None:
     summary = run.summary.setdefault("silver", {})
-    tables = [t for t in list_tables(engine, cfg.bronze_schema) if t != cfg.registry_table]
+    technical = {cfg.registry_table, cfg.version_table}
+    tables = [t for t in list_tables(engine, cfg.bronze_schema) if t not in technical]
     if not tables:
         log.warning("aucune table dans le schéma %s : lancer d'abord `indusense load bronze`",
                     cfg.bronze_schema)
@@ -239,12 +281,11 @@ def load_gold(run: Run, engine: Engine, cfg: LayerSettings) -> None:
 
 # ------------------------------------------------------------------ point d'entrée
 def run_layers(settings: Settings, layers: list[str], source_ids: list[str] | None = None,
-               env: EnvSettings | None = None, engine: Engine | None = None,
-               rebuild: bool = False) -> Run:
+               env: EnvSettings | None = None, engine: Engine | None = None) -> Run:
     """Charge les couches demandées, dans l'ordre bronze -> silver -> gold ; écrit le manifeste.
 
-    `rebuild` : supprime puis recrée les tables Bronze (perte des lots déjà chargés) ; à
-    n'utiliser que pour un changement de structure décidé.
+    Le Bronze exige une base à la dernière migration : un changement de structure passe par
+    `indusense db revision` (script généré, relu) puis `indusense db upgrade`.
     """
     env = env or EnvSettings()
     cfg = LayerSettings.from_raw(settings.raw, settings.root)
@@ -253,12 +294,14 @@ def run_layers(settings: Settings, layers: list[str], source_ids: list[str] | No
     engine = engine or make_engine(env)
     with engine.connect():                      # échoue tout de suite si la base est injoignable
         pass
+    if "bronze" in layers:
+        require_migrated(engine, settings, cfg)
     run = Run(settings)
     run.summary["refused"] = []
     contracts = load_contracts(settings.contracts_dir)
     loaded = []
     if "bronze" in layers:
-        loaded = load_bronze(run, engine, cfg, contracts, source_ids, rebuild)
+        loaded = load_bronze(run, engine, cfg, contracts, source_ids)
     if "silver" in layers:
         load_silver(run, engine, cfg, contracts, source_ids, env.anonymisation_salt)
     if "gold" in layers:

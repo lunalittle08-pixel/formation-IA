@@ -1,8 +1,8 @@
 # Infrastructure locale de developpement.
 #
-# Le schema n'est plus cree par les scripts d'initialisation PostgreSQL :
-# il est desormais gere par Alembic (voir `make migrate`). Melanger les deux
-# sources de verite produisait de la derive de schema.
+# Le schema n'est pas cree par les scripts d'initialisation PostgreSQL :
+# il est gere par Alembic (`uv run indusense db upgrade`, voir docs/08 §4 bis).
+# Melanger les deux sources de verite produisait de la derive de schema.
 
 volumes:
   guistorage:

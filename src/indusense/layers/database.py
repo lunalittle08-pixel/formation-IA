@@ -63,37 +63,37 @@ def make_table(name: str, column_types: dict[str, TypeEngine | type], schema: st
                  schema=schema, comment=comment)
 
 
-def keyed_table(name: str, column_types: dict, key: list[str], schema: str, comment: str) -> Table:
+def keyed_table(name: str, column_types: dict, key: list[str], schema: str, comment: str,
+                metadata: MetaData | None = None) -> Table:
     """Table dont l'unicité est portée par la base (clé primaire), pas par le code."""
-    return Table(name, MetaData(), *(Column(c, t) for c, t in column_types.items()),
+    return Table(name, metadata if metadata is not None else MetaData(),
+                 *(Column(c, t) for c, t in column_types.items()),
                  PrimaryKeyConstraint(*key), schema=schema, comment=comment)
 
 
+MIGRATION_HINT = ("générer la migration (uv run indusense db revision -m \"<motif>\"), la relire, "
+                  "puis l'appliquer (uv run indusense db upgrade)")
+
+
 class SchemaMismatch(RuntimeError):
-    """La table existe avec d'autres colonnes que celles attendues."""
+    """La table est absente, ou existe avec d'autres colonnes que celles attendues."""
 
 
-def ensure_table(conn: Connection, table: Table, rebuild: bool = False) -> None:
-    """Crée la table si besoin. Si elle existe avec d'autres colonnes : on refuse.
+def check_table(conn: Connection, table: Table) -> None:
+    """Vérifie que la table existe avec les colonnes attendues ; ne crée ni ne modifie rien.
 
-    Rien n'est modifié en silence : changer la structure d'une table qui contient déjà des
-    lots est une décision (reconstruction explicite avec `rebuild`, ou migration).
+    La structure des tables est gérée par les migrations Alembic, revues avant application :
+    jamais par un CREATE TABLE implicite au moment du chargement.
     """
-    conn.execute(CreateSchema(table.schema, if_not_exists=True))
-    if rebuild:
-        table.drop(conn, checkfirst=True)
     insp = inspect(conn)
     if not insp.has_table(table.name, schema=table.schema):
-        table.create(conn)
-        return
-    existing = [c["name"] for c in insp.get_columns(table.name, schema=table.schema)]
-    expected = [c.name for c in table.columns]
+        raise SchemaMismatch(f"{table.schema}.{table.name} n'existe pas : {MIGRATION_HINT}")
+    existing = {c["name"] for c in insp.get_columns(table.name, schema=table.schema)}
+    expected = {c.name for c in table.columns}
     if existing != expected:
-        missing = [c for c in expected if c not in existing]
-        unexpected = [c for c in existing if c not in expected]
         raise SchemaMismatch(f"{table.schema}.{table.name} existe avec une autre structure "
-                             f"(attendues absentes : {missing} ; en trop : {unexpected}). "
-                             "Si ce changement est décidé : relancer avec --rebuild")
+                             f"(attendues absentes : {sorted(expected - existing)} ; "
+                             f"en trop : {sorted(existing - expected)}) : {MIGRATION_HINT}")
 
 
 def insert_new_rows(conn: Connection, table: Table, frame: pd.DataFrame, chunk_size: int) -> int:
@@ -111,10 +111,10 @@ def insert_new_rows(conn: Connection, table: Table, frame: pd.DataFrame, chunk_s
     return inserted
 
 
-def registry(schema: str, name: str) -> Table:
+def registry(schema: str, name: str, metadata: MetaData | None = None) -> Table:
     """Registre des lots : une ligne par tentative de chargement, réussie ou non."""
     return Table(
-        name, MetaData(),
+        name, metadata if metadata is not None else MetaData(),
         Column("batch_id", Uuid, primary_key=True), Column("dataset_id", Text, nullable=False),
         Column("source_file", Text), Column("source_hash", Text), Column("contract_version", Text),
         Column("contract_hash", Text), Column("records_read", BigInteger),
@@ -126,10 +126,11 @@ def registry(schema: str, name: str) -> Table:
 
 
 def record_batch(engine: Engine, table: Table, entry: dict) -> None:
-    """Écrit une ligne du registre dans SA PROPRE transaction : un échec reste tracé."""
+    """Écrit une ligne du registre dans SA PROPRE transaction : un échec reste tracé.
+
+    La table du registre est créée par les migrations, comme les tables Bronze.
+    """
     with engine.begin() as conn:
-        conn.execute(CreateSchema(table.schema, if_not_exists=True))
-        table.create(conn, checkfirst=True)
         conn.execute(table.insert(), [entry])
 
 
