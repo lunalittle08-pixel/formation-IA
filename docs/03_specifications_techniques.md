@@ -310,6 +310,10 @@ indusense [--config CHEMIN] [--source ID]... [-v] COMMANDE
 | `contract check` | contrôle de structure (aucune lecture de données) | 1 si un contrat est invalide |
 | `validate` | validate | 1 si un jeu est non conforme |
 | `run` | identity, audit, draft, validate | 1 si un jeu est non conforme |
+| `load bronze\|silver\|gold\|all` | chargement des couches (PostgreSQL) ; le Bronze exige la dernière migration | 1 si un jeu est refusé ou la base pas à jour |
+| `db revision -m MOTIF` | génère la migration Alembic du Bronze (non appliquée), signale les opérations destructrices | 1 sans motif |
+| `db upgrade [REV]` / `db downgrade REV` | applique / annule les migrations | 1 en cas d'erreur |
+| `db current` / `db check` | révision appliquée / écarts entre la base et la structure attendue | 1 si en retard / s'il y a des écarts |
 
 Chaque commande (sauf `contract check`) écrit un manifeste. `--source` (répétable) restreint
 aux identifiants donnés. `-v` active les messages de débogage. Une erreur de configuration

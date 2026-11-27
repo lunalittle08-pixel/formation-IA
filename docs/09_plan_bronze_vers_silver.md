@@ -84,7 +84,8 @@ chaque réponse (date, décision, document ou contrat modifié).
 Bronze (nom dans `layers.bronze.technical_columns`, comme `_row_hash`), calculée au chargement à
 partir des valeurs d'origine, sans rien modifier à la donnée. Sa définition exacte (colonnes
 prises en compte, jetons d'absence, valeur non convertible) est fixée par Q-19. La structure des
-tables change : rechargement avec `indusense load bronze --rebuild`, écart avec `docs/08`
+tables change : migration Alembic générée, relue puis appliquée (`indusense db revision` puis
+`db upgrade`, docs/08 §4 bis), écart avec `docs/08`
 documenté, dictionnaire de données (section `transformations`) et tests mis à jour.
 
 Puis une commande en lecture seule sur le Bronze (par exemple `indusense portrait`), produisant
